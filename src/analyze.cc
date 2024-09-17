@@ -1,0 +1,682 @@
+#include "analyze.hh"
+
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <sstream>
+
+#include <boost/container/flat_map.hpp>
+#include <boost/container/flat_set.hpp>
+#include <omp.h>
+
+using namespace std::chrono;
+
+// OUTPUT FORMATTING CONSTANTS
+// max maximum number of profiling results to display
+constexpr size_t f_list_len = 24;
+constexpr size_t f_sublist_len = 8; // max length sub lists
+// column widths
+constexpr int f_w = 10;           // column width
+constexpr int f_w_bytes = 13;     // column width for bytes
+constexpr int f_w_device_id = 13; // column width for device ids
+constexpr int f_w_optype = 21;    // column width for optype
+
+float round_to(float value, float precision = 1.0) {
+  return std::roundf(value / precision) * precision;
+}
+
+std::string format_uint(uint64_t value, int width) {
+  assert(width > 0);
+  std::ostringstream oss;
+  oss << std::setw(width) << value;
+  return oss.str();
+}
+
+std::string format_percent(float percent, int width) {
+  assert(width > 1);
+  std::ostringstream oss;
+  constexpr int decimals = 2;
+  constexpr float precision = 0.01; // pow is not constexpr, so hard coded :(
+  percent *= 100;
+  percent = round_to(percent, precision);
+  oss << std::setw(width - 1) << std::fixed << std::showpoint
+      << std::setprecision(decimals) << percent << "%";
+  return oss.str();
+}
+
+std::string format_duration(uint64_t ns, int width) {
+  assert(width > 2);
+  std::ostringstream oss;
+
+  // Decide the best unit for the duration and print with a fixed width
+  oss << std::setprecision(5);
+  if (ns >= 1'000'000'000) {
+    const float sec = ns / 1'000'000'000.f;
+    oss << std::setw(width - 1) << sec << "s";
+  } else if (ns >= 1'000'000) {
+    const float ms = ns / 1'000'000.f;
+    oss << std::setw(width - 2) << ms << "ms";
+  } else if (ns >= 1'000) {
+    const float us = ns / 1'000.f;
+    oss << std::setw(width - 2) << us << "µs";
+  } else {
+    oss << std::setw(width - 2) << ns << "ns";
+  }
+
+  return oss.str();
+}
+
+std::string optype_to_string(ompt_target_data_op_t optype) {
+  switch (optype) {
+  case ompt_target_data_alloc:
+    return "alloc";
+  case ompt_target_data_transfer_to_device:
+    return "to device";
+  case ompt_target_data_transfer_from_device:
+    return "from device";
+  case ompt_target_data_delete:
+    return "delete";
+  case ompt_target_data_associate:
+    return "associate";
+  case ompt_target_data_disassociate:
+    return "disassociate";
+  case ompt_target_data_alloc_async:
+    return "alloc (async)";
+  case ompt_target_data_transfer_to_device_async:
+    return "to device (async)";
+  case ompt_target_data_transfer_from_device_async:
+    return "from device (async)";
+  case ompt_target_data_delete_async:
+    return "delete (async)";
+  default:
+    assert(false);
+    return "unknown";
+  }
+}
+
+std::string format_optype(ompt_target_data_op_t optype, int width) {
+  assert(width > 19);
+  std::ostringstream oss;
+  oss << "  " << std::left << std::setw(width - 2) << optype_to_string(optype);
+  return oss.str();
+}
+
+std::string format_symbol(Symbolizer &symbolizer, const void *codeptr_ra) {
+  if (codeptr_ra == nullptr) {
+    assert(false);
+    return "  ";
+  }
+  if (!symbolizer.is_valid()) {
+    return "  <symbolizer error>";
+  }
+  std::ostringstream oss;
+  const char *symbol = nullptr;
+  // const char *filename = nullptr;
+  int lineno = 0;
+  // int colno = 0;
+  symbolizer.info(codeptr_ra, &symbol, nullptr, &lineno, nullptr);
+  if (symbol == nullptr) {
+    return "  <optimized out>";
+  }
+  oss << "  " << symbol << ":";
+  if (lineno > 0) {
+    oss << lineno;
+  } else {
+    oss << "<optimized out>";
+  }
+  return oss.str();
+}
+
+std::string format_device_num(int device_num, int width) {
+  assert(width > 9);
+  std::ostringstream oss;
+  oss << std::left << std::setw(width);
+  if (device_num == omp_get_initial_device()) {
+    oss << "  host";
+  } else {
+    oss << ("  device " + std::to_string(device_num));
+  }
+  return oss.str();
+}
+
+std::string omp_version_to_string(unsigned int omp_version) {
+  switch (omp_version) {
+  case 199710:
+    return "FORTRAN version 1.0";
+  case 199810:
+    return "C/C++ version 1.0";
+  case 199911:
+    return "FORTRAN version 1.1";
+  case 200011:
+    return "FORTRAN version 2.0";
+  case 200203:
+    return "C/C++ version 2.0";
+  case 200505:
+    return "2.5";
+  case 200805:
+    return "3.0";
+  case 201107:
+    return "3.1";
+  case 201307:
+    return "4.0";
+  case 201511:
+    return "4.5";
+  case 201611:
+    return "5.0 preview 1";
+  case 201811:
+    return "5.0";
+  case 202011:
+    return "5.1";
+  case 202111:
+    return "5.2";
+  default:
+    return std::to_string(omp_version);
+  }
+}
+
+void print_duplicate_transfers(
+    Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
+    const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
+                             const std::vector<const data_op_info_t *> *>>
+        &duplicate_transfers_durations,
+    duration<uint64_t, std::nano> exec_time) {
+
+  std::cerr << "\n=== OpenMP Duplicate Target Data Transfer Analysis ===\n";
+  if (duplicate_transfers_durations.empty()) {
+    std::cerr << "  SUCCESS - no duplicate data transfers detected\n";
+    return;
+  }
+
+  size_t idx = 0;
+  // clang-format off
+  std::cerr << std::setw(f_w) << "time(%)"
+            << std::setw(f_w) << "time"
+            << std::setw(f_w) << "calls"
+            << std::setw(f_w) << "avg"
+            << std::setw(f_w_bytes) << "bytes"
+            << std::setw(f_w) << "size"
+            << std::left << std::setw(f_w_device_id) << "  dest device"
+            << std::right << "   "
+            << std::setw(f_w) << "calls"
+            << std::left << std::setw(f_w_device_id) << "  src device"
+            << std::right << "  location\n";
+  // clang-format on
+
+  // // reverse iterate since we want to display greatest times first
+  for (auto it = duplicate_transfers_durations.rbegin();
+       it != duplicate_transfers_durations.rend(); ++it) {
+    if (idx >= f_list_len) {
+      break;
+    }
+
+    const duration<uint64_t, std::nano> time = it->first;
+    const std::vector<const data_op_info_t *> *info_list_ptr = it->second;
+    const float time_percent = time.count() / (float)exec_time.count();
+    const uint64_t calls = info_list_ptr->size();
+    const duration<uint64_t, std::nano> time_avg(
+        (uint64_t)std::roundf(time.count() / (float)calls));
+    assert(!info_list_ptr->empty());
+    const int dest_device_num = (*info_list_ptr)[0]->dest_device_num;
+    const uint64_t transfer_size = (*info_list_ptr)[0]->bytes;
+    const uint64_t bytes = transfer_size * info_list_ptr->size();
+
+    // count the number of calls for each src_device and codeptr
+    std::map<std::pair<int /*src_device_num*/, const void * /*codeptr_ra*/>,
+             uint64_t /*calls*/>
+        device_codeptr_to_calls;
+    for (const data_op_info_t *entry_ptr : *info_list_ptr) {
+      const int src_device_num = entry_ptr->src_device_num;
+      const void *codeptr_ra = entry_ptr->codeptr_ra;
+      const std::pair<int, const void *> key(src_device_num, codeptr_ra);
+      device_codeptr_to_calls[key] += 1;
+    }
+
+    // sort by number of calls
+    std::set<std::tuple<uint64_t /*calls*/, int /*src_device_num*/,
+                        const void * /*codeptr_ra*/>>
+        calls_device_codeptr;
+    for (const auto &dc_c : device_codeptr_to_calls) {
+      const uint64_t calls = dc_c.second;
+      const int src_device_num = dc_c.first.first;
+      const void *codeptr_ra = dc_c.first.second;
+      calls_device_codeptr.emplace(calls, src_device_num, codeptr_ra);
+    }
+
+    // finally we can print the sub list
+    size_t subidx = 0;
+    assert(!calls_device_codeptr.empty());
+
+    // reverse iterator since we want to display highest call count first
+    for (auto it = calls_device_codeptr.rbegin();
+         it != calls_device_codeptr.rend(); ++it) {
+      if (subidx >= f_sublist_len) {
+        break;
+      }
+      const uint64_t sub_calls = std::get<0>(*it);
+      const int src_device_num = std::get<1>(*it);
+      const void *codeptr_ra = std::get<2>(*it);
+
+      if (subidx == 0) {
+        // clang-format off
+        std::cerr << format_percent(time_percent, f_w)
+                  << format_duration(time.count(), f_w)
+                  << format_uint(calls, f_w)
+                  << format_duration(time_avg.count(), f_w)
+                  << format_uint(bytes, f_w_bytes)
+                  << format_uint(transfer_size, f_w)
+                  << format_device_num(dest_device_num, f_w_device_id);
+        // clang-format on
+        if (calls_device_codeptr.size() > 1) {
+          std::cerr << " ┬─";
+        } else {
+          std::cerr << " ──";
+        }
+      } else {
+        std::cerr << std::string(5 * f_w + f_w_bytes + f_w_device_id, ' ');
+        if (calls_device_codeptr.size() > subidx + 1) {
+          std::cerr << " ├─";
+        } else {
+          std::cerr << " └─";
+        }
+      }
+      // clang-format off
+      std::cerr << format_uint(sub_calls, f_w)
+                << format_device_num(src_device_num, f_w_device_id)
+                << format_symbol(symbolizer, codeptr_ra)
+                << "\n";
+      // clang-format on
+      ++subidx;
+    }
+    ++idx;
+  }
+  return;
+}
+
+void print_round_trip_transfers(
+    Symbolizer &symbolizer,
+    const std::set<std::tuple<duration<uint64_t, std::nano> /*total_time*/,
+                              const data_op_info_t *, const data_op_info_t *>>
+        &round_trip_durations,
+    duration<uint64_t, std::nano> exec_time) {
+
+  size_t idx = 0;
+  std::cerr << "\n=== OpenMP Round Trip Target Data Transfer Analysis ===\n";
+  if (round_trip_durations.empty()) {
+    std::cerr << "  SUCCESS - no round trip data transfers detected\n";
+    return;
+  }
+  // clang-format off
+  std::cerr << std::setw(f_w) << "time(%)"
+            << std::setw(f_w) << "time"
+            << std::setw(f_w) << "avg"
+            << std::setw(f_w_bytes) << "bytes"
+            << std::setw(f_w) << "size"
+            << "   "
+            << std::left << std::setw(f_w_device_id) << "  src device"
+            << std::setw(f_w_device_id) << "  dest device"
+            << std::setw(f_w_optype) << "  optype"
+            << std::right << "  location\n";
+  // clang-format on
+  // // reverse iterate since we want to display greatest times first
+  for (auto it = round_trip_durations.rbegin();
+       it != round_trip_durations.rend(); ++it) {
+    if (idx >= f_list_len) {
+      break;
+    }
+    const duration<uint64_t, std::nano> time = std::get<0>(*it);
+    const data_op_info_t *ping_ptr = std::get<1>(*it);
+    const data_op_info_t *pong_ptr = std::get<2>(*it);
+    const float time_percent = time.count() / (float)exec_time.count();
+    const duration<uint64_t, std::nano> time_avg(
+        (uint64_t)std::roundf(time.count() / 2.f));
+    const uint64_t transfer_size = ping_ptr->bytes;
+    const uint64_t bytes = ping_ptr->bytes + pong_ptr->bytes;
+    const ompt_target_data_op_t ping_optype = ping_ptr->optype;
+    const ompt_target_data_op_t pong_optype = pong_ptr->optype;
+    const void *ping_codeptr_ra = ping_ptr->codeptr_ra;
+    const void *pong_codeptr_ra = pong_ptr->codeptr_ra;
+    const int src_device_num = ping_ptr->src_device_num;
+    const int dest_device_num = ping_ptr->dest_device_num;
+    // clang-format off
+    std::cerr << format_percent(time_percent, f_w)
+              << format_duration(time.count(), f_w)
+              << format_duration(time_avg.count(), f_w)
+              << format_uint(bytes, f_w_bytes)
+              << format_uint(transfer_size, f_w)
+              << " ┬─"
+              << format_device_num(src_device_num, f_w_device_id)
+              << format_device_num(dest_device_num, f_w_device_id)
+              << format_optype(ping_optype, f_w_optype)
+              << format_symbol(symbolizer, ping_codeptr_ra)
+              << "\n";
+    std::cerr << std::string(4 * f_w + f_w_bytes, ' ')
+              << " └─"
+              << format_device_num(dest_device_num, f_w_device_id)
+              << format_device_num(src_device_num, f_w_device_id)
+              << format_optype(pong_optype, f_w_optype)
+              << format_symbol(symbolizer, pong_codeptr_ra)
+              << "\n";
+    // clang-format on
+    ++idx;
+  }
+
+  return;
+}
+
+void print_potential_resource_savings(
+    const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
+                             const std::vector<const data_op_info_t *> *>>
+        &duplicate_transfers_durations,
+    const std::set<std::tuple<duration<uint64_t, std::nano> /*total_time*/,
+                              const data_op_info_t *, const data_op_info_t *>>
+        &round_trip_durations,
+    duration<uint64_t, std::nano> exec_time) {
+
+  duration<uint64_t, std::nano> pot_dd_time(0);
+  float pot_dd_time_percent = 0.f;
+  uint64_t pot_dd_calls = 0;
+  uint64_t pot_dd_bytes = 0;
+  for (auto it = duplicate_transfers_durations.rbegin();
+       it != duplicate_transfers_durations.rend(); ++it) {
+    const duration<uint64_t, std::nano> time = it->first;
+    const std::vector<const data_op_info_t *> *info_list_ptr = it->second;
+    const uint64_t calls = info_list_ptr->size();
+    const duration<uint64_t, std::nano> time_avg(
+        (uint64_t)std::roundf(time.count() / (float)calls));
+    assert(!info_list_ptr->empty());
+    const uint64_t transfer_size = (*info_list_ptr)[0]->bytes;
+    const uint64_t bytes = transfer_size * (info_list_ptr->size() - 1);
+
+    const duration<uint64_t, std::nano> pot_time_diff = time - time_avg;
+    pot_dd_time += pot_time_diff;
+    pot_dd_time_percent += pot_time_diff.count() / (float)exec_time.count();
+    pot_dd_calls += calls - 1;
+    pot_dd_bytes += bytes - transfer_size;
+  }
+
+  duration<uint64_t, std::nano> pot_rt_time(0);
+  float pot_rt_time_percent = 0.f;
+  const uint64_t pot_rt_calls = round_trip_durations.size();
+  uint64_t pot_rt_bytes = 0;
+
+  for (auto it = round_trip_durations.rbegin();
+       it != round_trip_durations.rend(); ++it) {
+    // const duration<uint64_t, std::nano> time = std::get<0>(*it);
+    // const data_op_info_t *ping_ptr = std::get<1>(*it);
+    const data_op_info_t *pong_ptr = std::get<2>(*it);
+    const duration<uint64_t, std::nano> pot_time_diff =
+        pong_ptr->end_time - pong_ptr->start_time;
+    pot_rt_time += pot_time_diff;
+    pot_rt_time_percent += pot_time_diff.count() / (float)exec_time.count();
+    pot_rt_bytes += pong_ptr->bytes;
+  }
+
+  const duration<uint64_t, std::nano> pot_time = pot_dd_time + pot_rt_time;
+  const float pot_time_percent = pot_dd_time_percent + pot_rt_time_percent;
+  const uint64_t pot_calls = pot_dd_calls + pot_rt_calls;
+  const uint64_t pot_bytes = pot_dd_bytes + pot_rt_bytes;
+
+  std::cerr << "\n  Found " << std::dec << pot_dd_calls
+            << " potential duplicate data transfer(s) with "
+            << duplicate_transfers_durations.size() << " unique hash(es).\n";
+  std::cerr << "  Found " << std::dec << pot_rt_calls
+            << " potential round trip data transfer(s).\n";
+
+  std::cerr << "  Potential Resource Savings\n";
+  constexpr int w = std::max(f_w, f_w_bytes);
+  // clang-format off
+  std::cerr <<   "    time(%)           "
+            << format_percent(pot_time_percent, w)
+            << "\n    time              "
+            << format_duration(pot_time.count(), w)
+            << "\n    data transfers    "
+            << format_uint(pot_calls, w)
+            << "\n    bytes transferred "
+            << format_uint(pot_bytes, w)
+            << "\n";
+  // clang-format on
+  return;
+}
+
+void analyze_redundant_transfers(
+    Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
+    duration<uint64_t, std::nano> exec_time) {
+  // map hashes and device_num of received data to the data op infos.
+  std::map<std::pair<uint64_t /*hash*/, int /*dest_device_num*/>,
+           std::vector<const data_op_info_t *>>
+      received;
+  std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
+                     const std::vector<const data_op_info_t *> *>>
+      duplicate_transfers_durations;
+
+  for (const data_op_info_t &entry : *data_op_log_ptr) {
+    if (!is_transfer_op(entry.optype)) {
+      continue;
+    }
+    const std::pair<uint64_t, int> key(entry.hash, entry.dest_device_num);
+    received[key].push_back(&entry);
+  }
+  for (auto &entry : received) {
+    std::vector<const data_op_info_t *> *duplicate_transfers_ptr =
+        &entry.second;
+    if (duplicate_transfers_ptr->size() <= 1) {
+      // not a duplicate transfer if it was unique hash
+      continue;
+    }
+    duration<uint64_t, std::nano> duration(0);
+    for (const data_op_info_t *transfer_ptr : *duplicate_transfers_ptr) {
+      duration += transfer_ptr->end_time - transfer_ptr->start_time;
+    }
+    duplicate_transfers_durations.emplace(duration, duplicate_transfers_ptr);
+  }
+
+  print_duplicate_transfers(symbolizer, data_op_log_ptr,
+                            duplicate_transfers_durations, exec_time);
+
+  // _Round Trip Transfers_ are when data is transferred then the same data is
+  // transferred back (unmodified).
+  std::map<std::tuple<uint64_t /*hash*/, int /*src_device_num*/,
+                      int /*dest_device_num*/>,
+           std::pair<const data_op_info_t *, const data_op_info_t *>>
+      round_trip_transfers;
+  for (const data_op_info_t &entry : *data_op_log_ptr) {
+    if (!is_transfer_op(entry.optype)) {
+      continue;
+    }
+
+    const std::tuple<uint64_t, int, int> trip_key(
+        entry.hash, entry.src_device_num, entry.dest_device_num);
+    if (round_trip_transfers.contains(trip_key)) {
+      // If there are multiple round trips between the same 2 devices with the
+      // same hash, we only count it once, since duplicate data transfers will
+      // catch that and since it helps us more easily provide a more accurate
+      // potential speedup since we don't double count any types of redundant
+      // data transfers.
+      continue;
+    }
+    // Check if this data is later received by this device. If so, this is a
+    // candidate for a round trip transfer.
+    const std::pair<uint64_t, int> rx_key(entry.hash, entry.src_device_num);
+    const auto &rx_it = received.find(rx_key);
+    if (rx_it == received.end()) {
+      // this data is never sent back
+      continue;
+    }
+    assert(!rx_it->second.empty());
+    const std::pair<const data_op_info_t *, const data_op_info_t *> ping_pong(
+        &entry, rx_it->second[0]);
+    round_trip_transfers[trip_key] = ping_pong;
+  }
+
+  std::set<std::tuple<duration<uint64_t, std::nano> /*total_time*/,
+                      const data_op_info_t *, const data_op_info_t *>>
+      round_trip_durations;
+  for (const auto &entry : round_trip_transfers) {
+    const data_op_info_t *ping_ptr = entry.second.first;
+    const data_op_info_t *pong_ptr = entry.second.second;
+    const duration<uint64_t, std::nano> ping_duration =
+        ping_ptr->end_time - ping_ptr->start_time;
+    const duration<uint64_t, std::nano> pong_duration =
+        pong_ptr->end_time - pong_ptr->start_time;
+    const duration<uint64_t, std::nano> trip_duration =
+        ping_duration + pong_duration;
+    round_trip_durations.emplace(trip_duration, ping_ptr, pong_ptr);
+  }
+
+  print_round_trip_transfers(symbolizer, round_trip_durations, exec_time);
+
+  print_potential_resource_savings(duplicate_transfers_durations,
+                                   round_trip_durations, exec_time);
+  return;
+}
+
+void print_codeptr_durations(
+    Symbolizer &symbolizer,
+    const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
+                             const std::vector<const data_op_info_t *> *>>
+        &codeptr_durations,
+    duration<uint64_t, std::nano> exec_time) {
+
+  size_t idx = 0;
+  std::cerr << "\n=== OpenMP Target Data Operations Profiling Results ===\n";
+  if (codeptr_durations.empty()) {
+    std::cerr << "  no data operations profiled\n";
+    return;
+  }
+  // clang-format off
+  std::cerr << std::setw(f_w) << "time(%)"
+            << std::setw(f_w) << "time"
+            << std::setw(f_w) << "calls"
+            << std::setw(f_w) << "avg"
+            << std::setw(f_w) << "min"
+            << std::setw(f_w) << "max"
+            << std::setw(f_w_bytes) << "bytes"
+            << std::left << std::setw(f_w_optype) << "  optype"
+            << std::right << "  location\n";
+  // clang-format on
+  // // reverse iterate since we want to display greatest times first
+  for (auto it = codeptr_durations.rbegin(); it != codeptr_durations.rend();
+       ++it) {
+    if (idx >= f_list_len) {
+      break;
+    }
+    const duration<uint64_t, std::nano> time = it->first;
+    const std::vector<const data_op_info_t *> *info_list_ptr = it->second;
+    const float time_percent = time.count() / (float)exec_time.count();
+    const uint64_t calls = info_list_ptr->size();
+    const duration<uint64_t, std::nano> time_avg(
+        (uint64_t)std::roundf(time.count() / (float)calls));
+    duration<uint64_t, std::nano> time_min(UINT64_MAX);
+    duration<uint64_t, std::nano> time_max(0);
+    uint64_t bytes = 0;
+    assert(!info_list_ptr->empty());
+    const ompt_target_data_op_t optype = (*info_list_ptr)[0]->optype;
+    const void *codeptr_ra = (*info_list_ptr)[0]->codeptr_ra;
+    for (const data_op_info_t *entry_ptr : *info_list_ptr) {
+      const duration<uint64_t, std::nano> entry_duration =
+          (entry_ptr->end_time - entry_ptr->start_time);
+      if (entry_duration < time_min) {
+        time_min = entry_duration;
+      }
+      if (entry_duration > time_max) {
+        time_max = entry_duration;
+      }
+      bytes += entry_ptr->bytes;
+    }
+    // clang-format off
+    std::cerr << format_percent(time_percent, f_w)
+              << format_duration(time.count(), f_w)
+              << format_uint(calls, f_w)
+              << format_duration(time_avg.count(), f_w)
+              << format_duration(time_min.count(), f_w)
+              << format_duration(time_max.count(), f_w)
+              << format_uint(bytes, f_w_bytes)
+              << format_optype(optype, f_w_optype)
+              << format_symbol(symbolizer, codeptr_ra)
+              << "\n";
+    // clang-format on
+    ++idx;
+  }
+
+  return;
+}
+
+void analyze_codeptr_durations(
+    Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
+    duration<uint64_t, std::nano> exec_time) {
+  // for identifying most expensive code
+  std::map<
+      std::pair<const void * /*codeptr_ra*/, ompt_target_data_op_t /*optype*/>,
+      std::vector<const data_op_info_t *>>
+      codeptr_to_data_op;
+  std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
+                     const std::vector<const data_op_info_t *> *>>
+      codeptr_durations;
+
+  for (const data_op_info_t &entry : *data_op_log_ptr) {
+    const std::pair<const void *, ompt_target_data_op_t> key(entry.codeptr_ra,
+                                                             entry.optype);
+    codeptr_to_data_op[key].push_back(&entry);
+  }
+  for (auto &entry : codeptr_to_data_op) {
+    const std::vector<const data_op_info_t *> *info_list_ptr = &entry.second;
+    duration<uint64_t, std::nano> duration(0);
+    assert(!info_list_ptr->empty());
+    for (const data_op_info_t *info_ptr : *info_list_ptr) {
+      duration += info_ptr->end_time - info_ptr->start_time;
+    }
+    codeptr_durations.emplace(duration, info_list_ptr);
+  }
+
+  print_codeptr_durations(symbolizer, codeptr_durations, exec_time);
+  return;
+}
+
+void print_summary(const std::vector<data_op_info_t> *data_op_log_ptr,
+                   duration<uint64_t, std::nano> exec_time) {
+  std::map<ompt_target_data_op_t, duration<uint64_t, std::nano>> op_time_map;
+  std::map<ompt_target_data_op_t, uint64_t> op_bytes_map;
+  std::map<ompt_target_data_op_t, uint64_t> op_calls_map;
+  for (const data_op_info_t &entry : *data_op_log_ptr) {
+    const ompt_target_data_op_t optype = entry.optype;
+    op_time_map[optype] += entry.end_time - entry.start_time;
+    op_bytes_map[optype] += entry.bytes;
+    op_calls_map[optype] += 1;
+  }
+
+  // rank optypes by execution time
+  std::set<std::pair<duration<uint64_t, std::nano>, ompt_target_data_op_t>>
+      time_op_set;
+  for (const auto &[optype, time] : op_time_map) {
+    time_op_set.emplace(time, optype);
+  }
+
+  std::cerr << "\n=== OpenMP Target Data Operations Timing Summary ===\n";
+  // clang-format off
+  std::cerr << std::setw(f_w) << "time(%)"
+            << std::setw(f_w) << "time"
+            << std::setw(f_w) << "calls"
+            << std::setw(f_w_bytes) << "bytes"
+            << std::left << std::setw(f_w_optype) << "  optype"
+            << std::right << "\n";
+  // clang-format on
+
+  // reverse iterate since we want to display greatest times first
+  for (auto it = time_op_set.rbegin(); it != time_op_set.rend(); ++it) {
+    const duration<uint64_t, std::nano> time = it->first;
+    const ompt_target_data_op_t optype = it->second;
+    const float time_percent = time.count() / (float)exec_time.count();
+    const uint64_t calls = op_calls_map[optype];
+    const uint64_t bytes = op_bytes_map[optype];
+    // clang-format off
+    std::cerr << format_percent(time_percent, f_w)
+              << format_duration(time.count(), f_w)
+              << format_uint(calls, f_w)
+              << format_uint(bytes, f_w_bytes)
+              << format_optype(optype, f_w_optype)
+              << "\n";
+    // clang-format on
+  }
+  return;
+}
