@@ -4,6 +4,12 @@
 #include <set>
 #include <vector>
 
+#ifdef ENABLE_COLLISION_CHECKING
+#include <cassert>
+#include <map>
+#include <string.h>
+#endif // ENABLE_COLLISION_CHECKING
+
 #include <omp-tools.h>
 
 #include "symbolizer.hh"
@@ -62,7 +68,7 @@ std::string format_percent(float percent, int width);
 std::string format_duration(uint64_t ns, int width);
 std::string format_optype(ompt_target_data_op_t optype, int width);
 std::string format_symbol(Symbolizer &symbolizer, const void *codeptr_ra);
-std::string format_device_num(int device_num, int width);
+std::string format_device_num(int num_devices, int device_num, int width);
 
 std::string optype_to_string(ompt_target_data_op_t optype);
 std::string omp_version_to_string(unsigned int omp_version);
@@ -73,14 +79,14 @@ void print_duplicate_transfers(
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
                   const std::vector<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
-    std::chrono::duration<uint64_t, std::nano> exec_time);
+    std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_round_trip_transfers(
     Symbolizer &symbolizer,
     const std::set<
         std::tuple<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
                    const data_op_info_t *, const data_op_info_t *>>
         &round_trip_durations,
-    std::chrono::duration<uint64_t, std::nano> exec_time);
+    std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_potential_resource_savings(
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
@@ -93,7 +99,7 @@ void print_potential_resource_savings(
     std::chrono::duration<uint64_t, std::nano> exec_time);
 void analyze_redundant_transfers(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
-    std::chrono::duration<uint64_t, std::nano> exec_time);
+    std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_codeptr_durations(
     Symbolizer &symbolizer,
     const std::set<
@@ -106,3 +112,33 @@ void analyze_codeptr_durations(
     std::chrono::duration<uint64_t, std::nano> exec_time);
 void print_summary(const std::vector<data_op_info_t> *data_op_log_ptr,
                    std::chrono::duration<uint64_t, std::nano> exec_time);
+
+#ifdef ENABLE_COLLISION_CHECKING
+
+typedef struct data_info {
+  void *data;
+  size_t bytes;
+
+  bool operator<=>(const struct data_info &other) const {
+    assert(data != nullptr && other.data != nullptr);
+    if (bytes != other.bytes) {
+      return bytes - other.bytes;
+    }
+    return memcmp(data, other.data, bytes);
+  }
+  bool operator==(const struct data_info &other) const {
+    assert(data != nullptr && other.data != nullptr);
+    return bytes == other.bytes && memcmp(data, other.data, bytes) == 0;
+  }
+} data_info_t;
+
+void try_collision_map_insert(
+    std::map<uint64_t /*hash*/, std::set<data_info_t>> *collision_map_ptr,
+    uint64_t hash, void *data, size_t bytes);
+void print_collision_summary(
+    const std::map<uint64_t /*hash*/, std::set<data_info_t>>
+        *collision_map_ptr);
+void free_data(const std::map<uint64_t /*hash*/, std::set<data_info_t>>
+                   *collision_map_ptr);
+
+#endif // ENABLE_COLLISION_CHECKING

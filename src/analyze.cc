@@ -128,11 +128,15 @@ std::string format_symbol(Symbolizer &symbolizer, const void *codeptr_ra) {
   return oss.str();
 }
 
-std::string format_device_num(int device_num, int width) {
+std::string format_device_num(int num_devices, int device_num, int width) {
   assert(width > 9);
   std::ostringstream oss;
   oss << std::left << std::setw(width);
-  if (device_num == omp_get_initial_device()) {
+  // OpenMP API Specification 5.2 Section 18.7.7
+  // "The effect of this routine is to return the device number of the host
+  // device. The value of the device number is the value returned by the
+  // omp_get_num_devices routine."
+  if (device_num == num_devices) {
     oss << "  host";
   } else {
     oss << ("  device " + std::to_string(device_num));
@@ -180,7 +184,7 @@ void print_duplicate_transfers(
     const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
                              const std::vector<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
-    duration<uint64_t, std::nano> exec_time) {
+    duration<uint64_t, std::nano> exec_time, int num_devices) {
 
   std::cerr << "\n=== OpenMP Duplicate Target Data Transfer Analysis ===\n";
   if (duplicate_transfers_durations.empty()) {
@@ -265,7 +269,8 @@ void print_duplicate_transfers(
                   << format_duration(time_avg.count(), f_w)
                   << format_uint(bytes, f_w_bytes)
                   << format_uint(transfer_size, f_w)
-                  << format_device_num(dest_device_num, f_w_device_id);
+                  << format_device_num(num_devices, dest_device_num,
+                                       f_w_device_id);
         // clang-format on
         if (calls_device_codeptr.size() > 1) {
           std::cerr << " ┬─";
@@ -282,7 +287,8 @@ void print_duplicate_transfers(
       }
       // clang-format off
       std::cerr << format_uint(sub_calls, f_w)
-                << format_device_num(src_device_num, f_w_device_id)
+                << format_device_num(num_devices, src_device_num,
+                                     f_w_device_id)
                 << format_symbol(symbolizer, codeptr_ra)
                 << "\n";
       // clang-format on
@@ -298,7 +304,7 @@ void print_round_trip_transfers(
     const std::set<std::tuple<duration<uint64_t, std::nano> /*total_time*/,
                               const data_op_info_t *, const data_op_info_t *>>
         &round_trip_durations,
-    duration<uint64_t, std::nano> exec_time) {
+    duration<uint64_t, std::nano> exec_time, int num_devices) {
 
   size_t idx = 0;
   std::cerr << "\n=== OpenMP Round Trip Target Data Transfer Analysis ===\n";
@@ -345,15 +351,19 @@ void print_round_trip_transfers(
               << format_uint(bytes, f_w_bytes)
               << format_uint(transfer_size, f_w)
               << " ┬─"
-              << format_device_num(src_device_num, f_w_device_id)
-              << format_device_num(dest_device_num, f_w_device_id)
+              << format_device_num(num_devices, src_device_num,
+                                   f_w_device_id)
+              << format_device_num(num_devices, dest_device_num,
+                                   f_w_device_id)
               << format_optype(ping_optype, f_w_optype)
               << format_symbol(symbolizer, ping_codeptr_ra)
               << "\n";
     std::cerr << std::string(4 * f_w + f_w_bytes, ' ')
               << " └─"
-              << format_device_num(dest_device_num, f_w_device_id)
-              << format_device_num(src_device_num, f_w_device_id)
+              << format_device_num(num_devices, dest_device_num,
+                                   f_w_device_id)
+              << format_device_num(num_devices, src_device_num,
+                                   f_w_device_id)
               << format_optype(pong_optype, f_w_optype)
               << format_symbol(symbolizer, pong_codeptr_ra)
               << "\n";
@@ -441,7 +451,7 @@ void print_potential_resource_savings(
 
 void analyze_redundant_transfers(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
-    duration<uint64_t, std::nano> exec_time) {
+    duration<uint64_t, std::nano> exec_time, int num_devices) {
   // map hashes and device_num of received data to the data op infos.
   std::map<std::pair<uint64_t /*hash*/, int /*dest_device_num*/>,
            std::vector<const data_op_info_t *>>
@@ -472,7 +482,8 @@ void analyze_redundant_transfers(
   }
 
   print_duplicate_transfers(symbolizer, data_op_log_ptr,
-                            duplicate_transfers_durations, exec_time);
+                            duplicate_transfers_durations, exec_time,
+                            num_devices);
 
   // _Round Trip Transfers_ are when data is transferred then the same data is
   // transferred back (unmodified).
@@ -524,7 +535,8 @@ void analyze_redundant_transfers(
     round_trip_durations.emplace(trip_duration, ping_ptr, pong_ptr);
   }
 
-  print_round_trip_transfers(symbolizer, round_trip_durations, exec_time);
+  print_round_trip_transfers(symbolizer, round_trip_durations, exec_time,
+                             num_devices);
 
   print_potential_resource_savings(duplicate_transfers_durations,
                                    round_trip_durations, exec_time);
@@ -653,6 +665,10 @@ void print_summary(const std::vector<data_op_info_t> *data_op_log_ptr,
   }
 
   std::cerr << "\n=== OpenMP Target Data Operations Timing Summary ===\n";
+  if (data_op_log_ptr->empty()) {
+    std::cerr << "  no data operations profiled\n";
+    return;
+  }
   // clang-format off
   std::cerr << std::setw(f_w) << "time(%)"
             << std::setw(f_w) << "time"
@@ -680,3 +696,72 @@ void print_summary(const std::vector<data_op_info_t> *data_op_log_ptr,
   }
   return;
 }
+
+#ifdef ENABLE_COLLISION_CHECKING
+/* This function will try to insert a copy of data in the corresponding set in
+ * the collision map.
+ * It is the caller's responsibility to call 'free' on data.
+ */
+void try_collision_map_insert(
+    std::map<uint64_t /*hash*/, std::set<data_info_t>> *collision_map_ptr,
+    uint64_t hash, void *data, size_t bytes) {
+  assert(data != nullptr);
+
+  const data_info_t key(data, bytes);
+  std::set<data_info_t> &set = (*collision_map_ptr)[hash];
+  const auto &hint = set.upper_bound(key);
+  if (!set.empty()) {
+    const auto &it = std::prev(hint);
+    if (it != set.begin() && *it == key) {
+      // data is already present
+      return;
+    }
+  }
+
+  void *data_copy = new (std::nothrow) char[bytes];
+  if (data_copy == nullptr) {
+    std::cerr << "warning: memory allocation failed. Hash collision checking "
+                 "is degraded.\n";
+    return;
+  }
+  memcpy(data_copy, data, bytes);
+  const data_info_t new_key(data_copy, bytes);
+  set.emplace_hint(hint, new_key);
+  return;
+}
+
+void print_collision_summary(
+    const std::map<uint64_t /*hash*/, std::set<data_info_t>>
+        *collision_map_ptr) {
+
+  // count collisions
+  uint64_t num_collisions = 0;
+  for (const auto &hash_set : *collision_map_ptr) {
+    assert(!hash_set.second.empty());
+    num_collisions += hash_set.second.size() - 1;
+  }
+
+  const uint64_t num_unique_hashes = collision_map_ptr->size();
+  const float percent_collisions = num_collisions / (float)num_unique_hashes;
+  std::ostringstream percent_collisions_oss;
+  percent_collisions_oss << std::setprecision(2)
+                         << round_to(percent_collisions, 0.01) << "%";
+  std::cerr << "\nFound " << std::dec << num_collisions << " collisions out of "
+            << num_unique_hashes << " total hashes for a collisions rate of "
+            << percent_collisions_oss.str() << ".\n";
+  return;
+}
+
+void free_data(const std::map<uint64_t /*hash*/, std::set<data_info_t>>
+                   *collision_map_ptr) {
+  for (const auto &hash_set : *collision_map_ptr) {
+    for (const data_info_t &entry : hash_set.second) {
+      if (entry.data == nullptr) {
+        continue;
+      }
+      delete[] static_cast<char *>(entry.data);
+    }
+  }
+  return;
+}
+#endif

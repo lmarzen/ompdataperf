@@ -30,3 +30,13 @@ include_directories(rapidhash)
 set_target_properties(libompdataprof PROPERTIES OUTPUT_NAME "ompdataprof")
 
 add_executable(ompdataprof src/preload.cc)
+
+
+option(ENABLE_COLLISION_CHECKING "Enable hash collision checking. WARNING: enabling this option will massively slow down profiling and hugely increase memory footprint" OFF)
+if(ENABLE_COLLISION_CHECKING)
+    message(STATUS "Collision check enabled")
+    add_definitions(-DENABLE_COLLISION_CHECKING)
+else()
+    message(STATUS "Collision check disabled")
+endif()
+
