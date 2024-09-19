@@ -53,6 +53,40 @@ ompt_finalize_tool_t ompt_finalize_tool;
 ompt_function_lookup_t ompt_function_lookup;
 } // namespace
 
+#ifdef ENABLE_COLLISION_CHECKING
+/* This function will try to insert a copy of data in the corresponding set in
+ * the collision map.
+ * It is the caller's responsibility to call 'free' on data.
+ */
+void try_collision_map_insert(
+    std::map<uint64_t /*hash*/, std::set<data_info_t>> *collision_map_ptr,
+    uint64_t hash, void *data, size_t bytes) {
+  assert(data != nullptr);
+
+  const data_info_t key(data, bytes);
+  std::set<data_info_t> &set = (*collision_map_ptr)[hash];
+  const auto &hint = set.upper_bound(key);
+  if (!set.empty()) {
+    const auto &it = std::prev(hint);
+    if (it != set.begin() && *it == key) {
+      // data is already present
+      return;
+    }
+  }
+
+  void *data_copy = new (std::nothrow) char[bytes];
+  if (data_copy == nullptr) {
+    std::cerr << "warning: memory allocation failed. Hash collision checking "
+                 "is degraded.\n";
+    return;
+  }
+  memcpy(data_copy, data, bytes);
+  const data_info_t new_key(data_copy, bytes);
+  set.emplace_hint(hint, new_key);
+  return;
+}
+#endif // ENABLE_COLLISION_CHECKING
+
 static void on_ompt_callback_target_data_op_emi(
     ompt_scope_endpoint_t endpoint, ompt_data_t *target_task_data,
     ompt_data_t *target_data, ompt_id_t *host_op_id,
@@ -262,7 +296,9 @@ void ompt_finalize(ompt_data_t *data) {
   }
 
   delete s_data_op_log_ptr;
+#ifdef ENABLE_COLLISION_CHECKING
   delete s_collision_map_ptr;
+#endif // ENABLE_COLLISION_CHECKING
 
   if (data != nullptr && data->ptr != nullptr) {
     ompt_start_tool_result_t *result =
@@ -299,7 +335,9 @@ ompt_start_tool(unsigned int omp_version, const char *runtime_version) {
   }
 
   s_data_op_log_ptr = new std::vector<data_op_info_t>();
+#ifdef ENABLE_COLLISION_CHECKING
   s_collision_map_ptr = new std::map<uint64_t, std::set<data_info_t>>();
+#endif // ENABLE_COLLISION_CHECKING
   ompt_start_tool_result_t *result = new ompt_start_tool_result_t;
   result->initialize = ompt_initialize;
   result->finalize = ompt_finalize;

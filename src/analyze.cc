@@ -697,38 +697,6 @@ void print_summary(const std::vector<data_op_info_t> *data_op_log_ptr,
 }
 
 #ifdef ENABLE_COLLISION_CHECKING
-/* This function will try to insert a copy of data in the corresponding set in
- * the collision map.
- * It is the caller's responsibility to call 'free' on data.
- */
-void try_collision_map_insert(
-    std::map<uint64_t /*hash*/, std::set<data_info_t>> *collision_map_ptr,
-    uint64_t hash, void *data, size_t bytes) {
-  assert(data != nullptr);
-
-  const data_info_t key(data, bytes);
-  std::set<data_info_t> &set = (*collision_map_ptr)[hash];
-  const auto &hint = set.upper_bound(key);
-  if (!set.empty()) {
-    const auto &it = std::prev(hint);
-    if (it != set.begin() && *it == key) {
-      // data is already present
-      return;
-    }
-  }
-
-  void *data_copy = new (std::nothrow) char[bytes];
-  if (data_copy == nullptr) {
-    std::cerr << "warning: memory allocation failed. Hash collision checking "
-                 "is degraded.\n";
-    return;
-  }
-  memcpy(data_copy, data, bytes);
-  const data_info_t new_key(data_copy, bytes);
-  set.emplace_hint(hint, new_key);
-  return;
-}
-
 void print_collision_summary(
     const std::map<uint64_t /*hash*/, std::set<data_info_t>>
         *collision_map_ptr) {
@@ -741,7 +709,10 @@ void print_collision_summary(
   }
 
   const uint64_t num_unique_hashes = collision_map_ptr->size();
-  const float percent_collisions = num_collisions / (float)num_unique_hashes;
+  float percent_collisions = 0.f;
+  if (num_unique_hashes > 0) {
+    percent_collisions = num_collisions / (float)num_unique_hashes;
+  }
   std::ostringstream percent_collisions_oss;
   percent_collisions_oss << std::setprecision(2)
                          << round_to(percent_collisions, 0.01) << "%";

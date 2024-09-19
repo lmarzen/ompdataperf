@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <getopt.h>
 #include <iostream>
 #include <string>
@@ -62,30 +63,33 @@ void setenv_omp_tool() {
 }
 
 /* Attempts to set up the OMP_TOOL_LIBRARIES environment variable for
- * ompdataprof. Returns on success, otherwise prints an error message and exits.
+ * ompdataprof. Assumes that libompdataprof.so is in the same directory as the
+ * current running executable. Returns on success, otherwise prints an error
+ * message and exits.
  */
-void setenv_omp_tool_libraries() {
-  const char *lib_rel_path = "libompdataprof.so";
-  char *lib_full_path = nullptr;
-  lib_full_path = realpath(lib_rel_path, nullptr);
-  if (lib_full_path == nullptr) {
-    std::cerr << "error: failed to resolve absolute path for " << lib_rel_path
-              << ". " << strerror(errno) << "\n";
+void setenv_omp_tool_libraries(const char *exec_path) {
+  namespace fs = std::filesystem;
+  const char *lib_name = "libompdataprof.so";
+  fs::path lib_path;
+  try {
+    fs::path exec_full_path = fs::canonical(exec_path);
+    lib_path = exec_full_path.parent_path().append(lib_name);
+  } catch (const std::exception &ex) {
+    std::cerr << "error: failed to resolve canonica path for " << lib_name
+              << ". " << ex.what() << "\n";
     exit(EXIT_FAILURE);
   }
 
   const char *env_omp_tool_libraries = getenv("OMP_TOOL_LIBRARIES");
   std::string new_env_omp_tool_libraries;
   if (env_omp_tool_libraries == nullptr) {
-    new_env_omp_tool_libraries = std::string(lib_full_path);
+    new_env_omp_tool_libraries = lib_path.string();
   } else {
     new_env_omp_tool_libraries =
-        std::string(env_omp_tool_libraries) + ":" + std::string(lib_full_path);
+        std::string(env_omp_tool_libraries) + ":" + lib_path.string();
   }
   safe_setenv("OMP_TOOL_LIBRARIES", new_env_omp_tool_libraries.c_str(),
               1 /*overwrite*/);
-  free(lib_full_path);
-  lib_full_path = nullptr;
   return;
 }
 
@@ -165,7 +169,7 @@ int main(int argc, char *argv[]) {
   program_args.push_back(nullptr);
 
   setenv_omp_tool();
-  setenv_omp_tool_libraries();
+  setenv_omp_tool_libraries(argv[0]);
   setenv_omp_tool_verbose_init(verbose);
 
   if (verbose) {
