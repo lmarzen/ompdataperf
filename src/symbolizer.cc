@@ -108,7 +108,7 @@ void Symbolizer::info(const void *ip, const char **symbol,
   return;
 }
 
-std::string demangle(const char *symbol) {
+std::string Symbolizer::demangle(const char *symbol) {
   if (symbol == nullptr) {
     return "";
   }
