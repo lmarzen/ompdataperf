@@ -118,7 +118,7 @@ std::string format_symbol(Symbolizer &symbolizer, const void *codeptr_ra) {
   if (symbol == nullptr) {
     return "  <optimized out>";
   }
-  oss << "  " << symbol << ":";
+  oss << "  " << symbolizer.demangle(symbol) << ":";
   if (lineno > 0) {
     oss << lineno;
   } else {

@@ -1,5 +1,7 @@
 #include "symbolizer.hh"
 
+#include <cstring>
+#include <cxxabi.h>
 #include <iostream>
 #include <sstream>
 #include <unistd.h>
@@ -14,7 +16,8 @@ const Dwfl_Callbacks s_callbacks = {
     /* debuginfo_path  = */ nullptr};
 }
 
-Symbolizer::Symbolizer(bool verbose) : m_dwfl(dwfl_begin(&s_callbacks)), m_verbose(verbose) {
+Symbolizer::Symbolizer(bool verbose)
+    : m_dwfl(dwfl_begin(&s_callbacks)), m_verbose(verbose) {
 
   if (m_dwfl == nullptr) {
     m_errmsg = "error: failed to initialize dwfl";
@@ -30,7 +33,8 @@ Symbolizer::Symbolizer(bool verbose) : m_dwfl(dwfl_begin(&s_callbacks)), m_verbo
 
   if (success != 0) {
     std::ostringstream oss;
-    oss << "error: failed to report process to dwfl. " << dwfl_errmsg(dwfl_errno());
+    oss << "error: failed to report process to dwfl. "
+        << dwfl_errmsg(dwfl_errno());
     m_errmsg = oss.str();
     if (m_verbose) {
       std::cerr << m_errmsg << std::endl;
@@ -60,8 +64,8 @@ void Symbolizer::info(const void *ip, const char **symbol,
   Dwfl_Module *module = dwfl_addrmodule(m_dwfl, (Dwarf_Addr)ip);
   if (module == nullptr) {
     std::ostringstream oss;
-    oss << "warning: failed to find module containing address" << std::hex
-        << ip << ". " << dwfl_errmsg(dwfl_errno());
+    oss << "warning: failed to find module containing address" << std::hex << ip
+        << ". " << dwfl_errmsg(dwfl_errno());
     m_errmsg = oss.str();
     if (m_verbose) {
       std::cerr << m_errmsg << std::endl;
@@ -78,7 +82,8 @@ void Symbolizer::info(const void *ip, const char **symbol,
     std::ostringstream oss;
     oss << "warning: failed to resolve line information for address "
         << std::hex << ip << ". " << dwfl_errmsg(dwfl_errno()) << "\n";
-    oss << "info: recompiling target with debug information enabled may fix this (add flag '-g')";
+    oss << "info: recompiling target with debug information enabled may fix "
+           "this (add flag '-g')";
     m_errmsg = oss.str();
     if (m_verbose) {
       std::cerr << m_errmsg << std::endl;
@@ -101,4 +106,20 @@ void Symbolizer::info(const void *ip, const char **symbol,
   }
 
   return;
+}
+
+std::string demangle(const char *symbol) {
+  if (symbol == nullptr) {
+    return "";
+  }
+  if (strlen(symbol) < 3 || symbol[0] != '_' || symbol[1] != 'Z') {
+    return symbol;
+  }
+  char *demangled = abi::__cxa_demangle(symbol, nullptr, nullptr, nullptr);
+  if (demangled == nullptr) {
+    return symbol;
+  }
+  std::string ret = demangled;
+  free(demangled);
+  return ret;
 }

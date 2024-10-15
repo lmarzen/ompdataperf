@@ -17,7 +17,7 @@ public:
   ~Symbolizer();
 
   /* Given an instruction pointer for the running program, will return the
-   * (demangled) symbol name, source filename, line number, and column number.
+   * (mangled) symbol name, source filename, line number, and column number.
    * Arguments may be nullptr for unneeded fields. The 'symbol' and 'filename'
    * fields are set to null if cannot successfully be determined; 'lineno' and
    * 'colno' are set to 0.
@@ -40,4 +40,8 @@ public:
   /* Returns true if the Symbolizer has an active session with dwfl, false otherwise.
    */
   bool is_valid() const { return m_dwfl != nullptr; };
+
+  /* Returns a string containing the demangled symbol.
+   */
+  std::string demangle(const char *symbol);
 };
