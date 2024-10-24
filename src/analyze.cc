@@ -181,7 +181,7 @@ std::string omp_version_to_string(unsigned int omp_version) {
 void print_duplicate_transfers(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
     const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
-                             const std::vector<const data_op_info_t *> *>>
+                             const std::deque<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
     duration<uint64_t, std::nano> exec_time, int num_devices) {
 
@@ -214,7 +214,7 @@ void print_duplicate_transfers(
     }
 
     const duration<uint64_t, std::nano> time = it->first;
-    const std::vector<const data_op_info_t *> *info_list_ptr = it->second;
+    const std::deque<const data_op_info_t *> *info_list_ptr = it->second;
     const float time_percent = time.count() / (float)exec_time.count();
     const uint64_t calls = info_list_ptr->size();
     const duration<uint64_t, std::nano> time_avg(
@@ -300,8 +300,10 @@ void print_duplicate_transfers(
 
 void print_round_trip_transfers(
     Symbolizer &symbolizer,
-    const std::set<std::tuple<duration<uint64_t, std::nano> /*total_time*/,
-                              const data_op_info_t *, const data_op_info_t *>>
+    const std::set<
+        std::pair<duration<uint64_t, std::nano> /*total_time*/,
+                  const std::vector<std::pair<const data_op_info_t *,
+                                              const data_op_info_t *>> *>>
         &round_trip_durations,
     duration<uint64_t, std::nano> exec_time, int num_devices) {
 
@@ -314,6 +316,7 @@ void print_round_trip_transfers(
   // clang-format off
   std::cerr << std::setw(f_w) << "time(%)"
             << std::setw(f_w) << "time"
+            << std::setw(f_w) << "cnt"
             << std::setw(f_w) << "avg"
             << std::setw(f_w_bytes) << "bytes"
             << std::setw(f_w) << "size"
@@ -329,23 +332,25 @@ void print_round_trip_transfers(
     if (idx >= f_list_len) {
       break;
     }
-    const duration<uint64_t, std::nano> time = std::get<0>(*it);
-    const data_op_info_t *ping_ptr = std::get<1>(*it);
-    const data_op_info_t *pong_ptr = std::get<2>(*it);
+    const duration<uint64_t, std::nano> time = it->first;
+    const data_op_info_t *tx_ptr = it->second->front().first;
+    const data_op_info_t *rx_ptr = it->second->front().second;
     const float time_percent = time.count() / (float)exec_time.count();
+    const uint64_t cnt = it->second->size();
     const duration<uint64_t, std::nano> time_avg(
-        (uint64_t)std::roundf(time.count() / 2.f));
-    const uint64_t transfer_size = ping_ptr->bytes;
-    const uint64_t bytes = ping_ptr->bytes + pong_ptr->bytes;
-    const ompt_target_data_op_t ping_optype = ping_ptr->optype;
-    const ompt_target_data_op_t pong_optype = pong_ptr->optype;
-    const void *ping_codeptr_ra = ping_ptr->codeptr_ra;
-    const void *pong_codeptr_ra = pong_ptr->codeptr_ra;
-    const int src_device_num = ping_ptr->src_device_num;
-    const int dest_device_num = ping_ptr->dest_device_num;
+        (uint64_t)std::roundf(time.count() / (float)cnt));
+    const uint64_t transfer_size = tx_ptr->bytes;
+    const uint64_t bytes = cnt * (tx_ptr->bytes + rx_ptr->bytes);
+    const ompt_target_data_op_t tx_optype = tx_ptr->optype;
+    const ompt_target_data_op_t rx_optype = rx_ptr->optype;
+    const void *tx_codeptr_ra = tx_ptr->codeptr_ra;
+    const void *rx_codeptr_ra = rx_ptr->codeptr_ra;
+    const int src_device_num = tx_ptr->src_device_num;
+    const int dest_device_num = tx_ptr->dest_device_num;
     // clang-format off
     std::cerr << format_percent(time_percent, f_w)
               << format_duration(time.count(), f_w)
+              << format_uint(cnt, f_w)
               << format_duration(time_avg.count(), f_w)
               << format_uint(bytes, f_w_bytes)
               << format_uint(transfer_size, f_w)
@@ -354,8 +359,8 @@ void print_round_trip_transfers(
                                    f_w_device_id)
               << format_device_num(num_devices, dest_device_num,
                                    f_w_device_id)
-              << format_optype(ping_optype, f_w_optype)
-              << format_symbol(symbolizer, ping_codeptr_ra)
+              << format_optype(tx_optype, f_w_optype)
+              << format_symbol(symbolizer, tx_codeptr_ra)
               << "\n";
     std::cerr << std::string(4 * f_w + f_w_bytes, ' ')
               << " └─"
@@ -363,8 +368,8 @@ void print_round_trip_transfers(
                                    f_w_device_id)
               << format_device_num(num_devices, src_device_num,
                                    f_w_device_id)
-              << format_optype(pong_optype, f_w_optype)
-              << format_symbol(symbolizer, pong_codeptr_ra)
+              << format_optype(rx_optype, f_w_optype)
+              << format_symbol(symbolizer, rx_codeptr_ra)
               << "\n";
     // clang-format on
     ++idx;
@@ -377,8 +382,9 @@ void print_potential_resource_savings(
     const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
                              const std::vector<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
-    const std::set<std::tuple<duration<uint64_t, std::nano> /*total_time*/,
-                              const data_op_info_t *, const data_op_info_t *>>
+    const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
+                             const std::vector<std::pair<const data_op_info_t *,
+                                                   const data_op_info_t *>> *>>
         &round_trip_durations,
     duration<uint64_t, std::nano> exec_time) {
 
@@ -406,25 +412,35 @@ void print_potential_resource_savings(
 
   duration<uint64_t, std::nano> pot_rt_time(0);
   float pot_rt_time_percent = 0.f;
-  const uint64_t pot_rt_calls = round_trip_durations.size();
-  uint64_t pot_rt_bytes = 0;
+  uint64_t pot_rt_calls = 0;
+  // uint64_t pot_rt_bytes = 0;
+  uint64_t pot_rt_unique_calls = 0;
+  uint64_t pot_rt_unique_bytes = 0;
 
   for (auto it = round_trip_durations.rbegin();
        it != round_trip_durations.rend(); ++it) {
-    // const duration<uint64_t, std::nano> time = std::get<0>(*it);
-    // const data_op_info_t *ping_ptr = std::get<1>(*it);
-    const data_op_info_t *pong_ptr = std::get<2>(*it);
+    // const duration<uint64_t, std::nano> time = it->first;
+    // const data_op_info_t *tx_ptr = it->second->front().first;
+    const data_op_info_t *rx_ptr = it->second->front().second;
     const duration<uint64_t, std::nano> pot_time_diff =
-        pong_ptr->end_time - pong_ptr->start_time;
+        rx_ptr->end_time - rx_ptr->start_time;
     pot_rt_time += pot_time_diff;
     pot_rt_time_percent += pot_time_diff.count() / (float)exec_time.count();
-    pot_rt_bytes += pong_ptr->bytes;
+    pot_rt_calls += it->second->size();
+    // pot_rt_bytes += (2 * pot_rt_calls * rx_ptr->bytes) - 1;
+    // If there are multiple round trips between the same 2 devices with the
+    // same hash, we only count it once, since duplicate data transfers will
+    // catch that and since it helps us more easily provide a more accurate
+    // potential speedup since we don't double count any types of redundant
+    // data transfers.
+    pot_rt_unique_calls += 1;
+    pot_rt_unique_bytes += rx_ptr->bytes;
   }
 
   const duration<uint64_t, std::nano> pot_time = pot_dd_time + pot_rt_time;
   const float pot_time_percent = pot_dd_time_percent + pot_rt_time_percent;
-  const uint64_t pot_calls = pot_dd_calls + pot_rt_calls;
-  const uint64_t pot_bytes = pot_dd_bytes + pot_rt_bytes;
+  const uint64_t pot_calls = pot_dd_calls + pot_rt_unique_calls;
+  const uint64_t pot_bytes = pot_dd_bytes + pot_rt_unique_bytes;
 
   std::cerr << "\n  Found " << std::dec << pot_dd_calls
             << " potential duplicate data transfer(s) with "
@@ -453,10 +469,10 @@ void analyze_redundant_transfers(
     duration<uint64_t, std::nano> exec_time, int num_devices) {
   // map hashes and device_num of received data to the data op infos.
   std::map<std::pair<uint64_t /*hash*/, int /*dest_device_num*/>,
-           std::vector<const data_op_info_t *>>
+           std::deque<const data_op_info_t *>>
       received;
   std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
-                     const std::vector<const data_op_info_t *> *>>
+                     const std::deque<const data_op_info_t *> *>>
       duplicate_transfers_durations;
 
   for (const data_op_info_t &entry : *data_op_log_ptr) {
@@ -467,8 +483,7 @@ void analyze_redundant_transfers(
     received[key].push_back(&entry);
   }
   for (auto &entry : received) {
-    std::vector<const data_op_info_t *> *duplicate_transfers_ptr =
-        &entry.second;
+    std::deque<const data_op_info_t *> *duplicate_transfers_ptr = &entry.second;
     if (duplicate_transfers_ptr->size() <= 1) {
       // not a duplicate transfer if it was unique hash
       continue;
@@ -486,52 +501,48 @@ void analyze_redundant_transfers(
 
   // _Round Trip Transfers_ are when data is transferred then the same data is
   // transferred back (unmodified).
-  std::map<std::tuple<uint64_t /*hash*/, int /*src_device_num*/,
-                      int /*dest_device_num*/>,
-           std::pair<const data_op_info_t *, const data_op_info_t *>>
+  std::map<
+      std::tuple<uint64_t /*hash*/, int /*src_device_num*/,
+                 int /*dest_device_num*/>,
+      std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>>
       round_trip_transfers;
-  for (const data_op_info_t &entry : *data_op_log_ptr) {
-    if (!is_transfer_op(entry.optype)) {
+  for (const data_op_info_t &tx_entry : *data_op_log_ptr) {
+    if (!is_transfer_op(tx_entry.optype)) {
       continue;
     }
 
-    const std::tuple<uint64_t, int, int> trip_key(
-        entry.hash, entry.src_device_num, entry.dest_device_num);
-    if (round_trip_transfers.contains(trip_key)) {
-      // If there are multiple round trips between the same 2 devices with the
-      // same hash, we only count it once, since duplicate data transfers will
-      // catch that and since it helps us more easily provide a more accurate
-      // potential speedup since we don't double count any types of redundant
-      // data transfers.
-      continue;
-    }
     // Check if this data is later received by this device. If so, this is a
     // candidate for a round trip transfer.
-    const std::pair<uint64_t, int> rx_key(entry.hash, entry.src_device_num);
+    const std::pair<uint64_t, int> rx_key(tx_entry.hash,
+                                          tx_entry.src_device_num);
     const auto &rx_it = received.find(rx_key);
-    if (rx_it == received.end()) {
-      // this data is never sent back
+    if (rx_it == received.end() || rx_it->second.empty()) {
+      // the round-trip is never completed, the data is never sent back
       continue;
     }
-    assert(!rx_it->second.empty());
-    const std::pair<const data_op_info_t *, const data_op_info_t *> ping_pong(
-        &entry, rx_it->second[0]);
-    round_trip_transfers[trip_key] = ping_pong;
+    const std::tuple<uint64_t, int, int> trip_key(
+        tx_entry.hash, tx_entry.src_device_num, tx_entry.dest_device_num);
+    const data_op_info_t *rx_entry = rx_it->second.front();
+    rx_it->second.pop_front();
+    const std::pair<const data_op_info_t *, const data_op_info_t *> tx_rx(
+        &tx_entry, rx_entry);
+    round_trip_transfers[trip_key].emplace_back(tx_rx);
   }
 
-  std::set<std::tuple<duration<uint64_t, std::nano> /*total_time*/,
-                      const data_op_info_t *, const data_op_info_t *>>
+  std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
+                     const std::vector<std::pair<const data_op_info_t *,
+                                                 const data_op_info_t *>> *>>
       round_trip_durations;
   for (const auto &entry : round_trip_transfers) {
-    const data_op_info_t *ping_ptr = entry.second.first;
-    const data_op_info_t *pong_ptr = entry.second.second;
-    const duration<uint64_t, std::nano> ping_duration =
-        ping_ptr->end_time - ping_ptr->start_time;
-    const duration<uint64_t, std::nano> pong_duration =
-        pong_ptr->end_time - pong_ptr->start_time;
+    duration<uint64_t, std::nano> tx_duration(0);
+    duration<uint64_t, std::nano> rx_duration(0);
+    for (const auto [rx_ptr, tx_ptr] : entry.second) {
+      tx_duration += tx_ptr->end_time - tx_ptr->start_time;
+      rx_duration += rx_ptr->end_time - rx_ptr->start_time;
+    }
     const duration<uint64_t, std::nano> trip_duration =
-        ping_duration + pong_duration;
-    round_trip_durations.emplace(trip_duration, ping_ptr, pong_ptr);
+        tx_duration + rx_duration;
+    round_trip_durations.emplace(trip_duration, &entry.second);
   }
 
   print_round_trip_transfers(symbolizer, round_trip_durations, exec_time,

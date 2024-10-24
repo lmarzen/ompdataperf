@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <deque>
 #include <set>
 #include <vector>
 
@@ -77,24 +78,26 @@ void print_duplicate_transfers(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
+                  const std::deque<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_round_trip_transfers(
     Symbolizer &symbolizer,
     const std::set<
-        std::tuple<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                   const data_op_info_t *, const data_op_info_t *>>
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  const std::vector<std::pair<const data_op_info_t *,
+                                              const data_op_info_t *>> *>>
         &round_trip_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_potential_resource_savings(
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
+                  const std::deque<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
     const std::set<
-        std::tuple<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                   const data_op_info_t *, const data_op_info_t *>>
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  const std::vector<std::pair<const data_op_info_t *,
+                                              const data_op_info_t *>> *>>
         &round_trip_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time);
 void analyze_redundant_transfers(
