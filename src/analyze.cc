@@ -538,7 +538,14 @@ void analyze_redundant_transfers(
     round_trip_transfers[trip_key].emplace_back(tx_rx);
     const std::pair<uint64_t, int> tx_key(tx_entry.hash,
                                           tx_entry.dest_device_num);
-    received_rt[tx_key].pop_front();
+    const auto &tx_it = received_rt.find(tx_key);
+#ifdef DEBUG
+    const data_op_info_t *_tx_entry = tx_it->second.front();
+    assert(_tx_entry == &tx_entry);
+#endif // DEBUG
+
+    tx_it->second.pop_front(); // Remove so that this is not falsely counted as
+                               // a completion for other round-trips.
   }
 
   std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
