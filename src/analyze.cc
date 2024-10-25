@@ -533,10 +533,12 @@ void analyze_redundant_transfers(
     const std::tuple<uint64_t, int, int> trip_key(
         tx_entry.hash, tx_entry.src_device_num, tx_entry.dest_device_num);
     const data_op_info_t *rx_entry = rx_it->second.front();
-    rx_it->second.pop_front();
     const std::pair<const data_op_info_t *, const data_op_info_t *> tx_rx(
         &tx_entry, rx_entry);
     round_trip_transfers[trip_key].emplace_back(tx_rx);
+    const std::pair<uint64_t, int> tx_key(tx_entry.hash,
+                                          tx_entry.dest_device_num);
+    received_rt[tx_key].pop_front();
   }
 
   std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
