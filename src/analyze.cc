@@ -362,7 +362,7 @@ void print_round_trip_transfers(
               << format_optype(tx_optype, f_w_optype)
               << format_symbol(symbolizer, tx_codeptr_ra)
               << "\n";
-    std::cerr << std::string(4 * f_w + f_w_bytes, ' ')
+    std::cerr << std::string(5 * f_w + f_w_bytes, ' ')
               << " └─"
               << format_device_num(num_devices, dest_device_num,
                                    f_w_device_id)
