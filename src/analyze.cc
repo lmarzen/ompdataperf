@@ -1,6 +1,7 @@
 #include "analyze.hh"
 
 #include <cmath>
+#include <deque>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -181,7 +182,7 @@ std::string omp_version_to_string(unsigned int omp_version) {
 void print_duplicate_transfers(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
     const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
-                             const std::deque<const data_op_info_t *> *>>
+                             const std::vector<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
     duration<uint64_t, std::nano> exec_time, int num_devices) {
 
@@ -214,7 +215,7 @@ void print_duplicate_transfers(
     }
 
     const duration<uint64_t, std::nano> time = it->first;
-    const std::deque<const data_op_info_t *> *info_list_ptr = it->second;
+    const std::vector<const data_op_info_t *> *info_list_ptr = it->second;
     const float time_percent = time.count() / (float)exec_time.count();
     const uint64_t calls = info_list_ptr->size();
     const duration<uint64_t, std::nano> time_avg(
@@ -316,7 +317,7 @@ void print_round_trip_transfers(
   // clang-format off
   std::cerr << std::setw(f_w) << "time(%)"
             << std::setw(f_w) << "time"
-            << std::setw(f_w) << "cnt"
+            << std::setw(f_w) << "count"
             << std::setw(f_w) << "avg"
             << std::setw(f_w_bytes) << "bytes"
             << std::setw(f_w) << "size"
@@ -382,9 +383,10 @@ void print_potential_resource_savings(
     const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
                              const std::vector<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
-    const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
-                             const std::vector<std::pair<const data_op_info_t *,
-                                                   const data_op_info_t *>> *>>
+    const std::set<
+        std::pair<duration<uint64_t, std::nano> /*total_time*/,
+                  const std::vector<std::pair<const data_op_info_t *,
+                                              const data_op_info_t *>> *>>
         &round_trip_durations,
     duration<uint64_t, std::nano> exec_time) {
 
@@ -467,12 +469,17 @@ void print_potential_resource_savings(
 void analyze_redundant_transfers(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
     duration<uint64_t, std::nano> exec_time, int num_devices) {
-  // map hashes and device_num of received data to the data op infos.
+  // Map hashes and device_num of received data to the data op infos.
+  // Create 2 received one for duplicate data transfers and one for round-trips,
+  // since the round-trip algorithm needs to modify its.
+  std::map<std::pair<uint64_t /*hash*/, int /*dest_device_num*/>,
+           std::vector<const data_op_info_t *>>
+      received_dd;
   std::map<std::pair<uint64_t /*hash*/, int /*dest_device_num*/>,
            std::deque<const data_op_info_t *>>
-      received;
+      received_rt;
   std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
-                     const std::deque<const data_op_info_t *> *>>
+                     const std::vector<const data_op_info_t *> *>>
       duplicate_transfers_durations;
 
   for (const data_op_info_t &entry : *data_op_log_ptr) {
@@ -480,11 +487,14 @@ void analyze_redundant_transfers(
       continue;
     }
     const std::pair<uint64_t, int> key(entry.hash, entry.dest_device_num);
-    received[key].push_back(&entry);
+    received_dd[key].push_back(&entry);
+    received_rt[key].push_back(&entry);
   }
-  for (auto &entry : received) {
-    std::deque<const data_op_info_t *> *duplicate_transfers_ptr = &entry.second;
-    if (duplicate_transfers_ptr->size() <= 1) {
+
+  for (auto &entry : received_dd) {
+    std::vector<const data_op_info_t *> *duplicate_transfers_ptr =
+        &entry.second;
+    if (duplicate_transfers_ptr->size() < 2) {
       // not a duplicate transfer if it was unique hash
       continue;
     }
@@ -515,8 +525,8 @@ void analyze_redundant_transfers(
     // candidate for a round trip transfer.
     const std::pair<uint64_t, int> rx_key(tx_entry.hash,
                                           tx_entry.src_device_num);
-    const auto &rx_it = received.find(rx_key);
-    if (rx_it == received.end() || rx_it->second.empty()) {
+    const auto &rx_it = received_rt.find(rx_key);
+    if (rx_it == received_rt.end() || rx_it->second.empty()) {
       // the round-trip is never completed, the data is never sent back
       continue;
     }

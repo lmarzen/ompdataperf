@@ -1,7 +1,6 @@
 #pragma once
 
 #include <chrono>
-#include <deque>
 #include <set>
 #include <vector>
 
@@ -78,7 +77,7 @@ void print_duplicate_transfers(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::deque<const data_op_info_t *> *>>
+                  const std::vector<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_round_trip_transfers(
@@ -92,7 +91,7 @@ void print_round_trip_transfers(
 void print_potential_resource_savings(
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::deque<const data_op_info_t *> *>>
+                  const std::vector<const data_op_info_t *> *>>
         &duplicate_transfers_durations,
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
