@@ -165,11 +165,11 @@ std::string omp_version_to_string(unsigned int omp_version) {
   case 201211:
     return "TR1 directives for attached accelerators";
   case 201305:
-    return "TR OMPT and OMPD";
+    return "TR ompt and ompd";
   case 201307:
     return "4.0";
   case 201403:
-    return "TR2 OMPT";
+    return "TR2 ompt";
   case 201411:
     return "TR3 4.1 draft";
   case 201511:
