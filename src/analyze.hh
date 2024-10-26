@@ -74,7 +74,7 @@ std::string optype_to_string(ompt_target_data_op_t optype);
 std::string omp_version_to_string(unsigned int omp_version);
 
 void print_duplicate_transfers(
-    Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
+    Symbolizer &symbolizer,
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
                   const std::vector<const data_op_info_t *> *>>
@@ -88,6 +88,14 @@ void print_round_trip_transfers(
                                               const data_op_info_t *>> *>>
         &round_trip_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
+void print_repeated_allocs(
+    Symbolizer &symbolizer,
+    const std::set<
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  const std::vector<std::pair<const data_op_info_t *,
+                                              const data_op_info_t *>> *>>
+        &repeated_alloc_durations,
+    std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_potential_resource_savings(
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
@@ -98,6 +106,11 @@ void print_potential_resource_savings(
                   const std::vector<std::pair<const data_op_info_t *,
                                               const data_op_info_t *>> *>>
         &round_trip_durations,
+    const std::set<
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  const std::vector<std::pair<const data_op_info_t *,
+                                              const data_op_info_t *>> *>>
+        &repeated_alloc_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time);
 void analyze_redundant_transfers(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
