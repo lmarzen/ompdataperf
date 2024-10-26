@@ -162,18 +162,44 @@ std::string omp_version_to_string(unsigned int omp_version) {
     return "3.0";
   case 201107:
     return "3.1";
+  case 201211:
+    return "TR1 directives for attached accelerators";
+  case 201305:
+    return "TR OMPT and OMPD";
   case 201307:
     return "4.0";
+  case 201403:
+    return "TR2 OMPT";
+  case 201411:
+    return "TR3 4.1 draft";
   case 201511:
     return "4.5";
   case 201611:
-    return "5.0 preview 1";
+    return "TR4 5.0 preview 1";
+  case 201701:
+    return "TR5 memory management support for 5.0";
+  case 201711:
+    return "TR6 5.0 preview 2";
+  case 201807:
+    return "TR7 5.0 draft";
   case 201811:
     return "5.0";
+  case 201911:
+    return "TR8 5.1 preview 1";
+  case 202008:
+    return "TR9 5.1 draft";
   case 202011:
     return "5.1";
+  case 202107:
+    return "TR10 5.2 draft";
   case 202111:
     return "5.2";
+  case 202211:
+    return "TR11 6.0 preview 1";
+  case 202311:
+    return "TR12 6.0 preview 2";
+  case 202408:
+    return "TR13 6.0 draft";
   default:
     return std::to_string(omp_version);
   }
