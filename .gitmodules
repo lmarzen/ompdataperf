@@ -10,3 +10,9 @@
 [submodule "hashes/meow_hash"]
 	path = hashes/meow_hash
 	url = https://github.com/cmuratori/meow_hash.git
+[submodule "hashes/cityhash"]
+	path = hashes/cityhash
+	url = https://github.com/google/cityhash.git
+[submodule "hashes/farmhash"]
+	path = hashes/farmhash
+	url = https://github.com/google/farmhash.git

@@ -37,15 +37,50 @@ else()
 endif()
 
 # Set a default hash function if none is provided
-set(HASH_FUNCTION "RAPIDHASH" CACHE STRING "Hash function to use (options: MEOWHASH RAPIDHASH, T1HA0, XXH3)")
+set(HASH_FUNCTION "rapidhash" CACHE STRING "Hash function to use")
 add_compile_definitions(HASH_FUNCTION_${HASH_FUNCTION})
-if(HASH_FUNCTION STREQUAL "MEOWHASH")
+add_compile_definitions(HASH_FUNCTION=${HASH_FUNCTION})
+if(HASH_FUNCTION STREQUAL "CityHash32" OR
+   HASH_FUNCTION STREQUAL "CityHash64" OR
+   HASH_FUNCTION STREQUAL "CityHash128" OR
+   HASH_FUNCTION STREQUAL "CityHashCrc128")
+  include_directories(hashes/cityhash/src)
+  configure_file(
+    ${CMAKE_SOURCE_DIR}/hashes/cityhash/config.h.in
+    ${CMAKE_BINARY_DIR}/hashes/cityhash/config.h
+    COPYONLY
+  )
+  add_library(cityhash STATIC hashes/cityhash/src/city.cc)
+  target_include_directories(cityhash PRIVATE ${CMAKE_BINARY_DIR}/hashes/cityhash)
+  set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native")
+  target_link_libraries(libompdataprof PRIVATE cityhash)
+elseif(HASH_FUNCTION STREQUAL "FarmHash32" OR
+       HASH_FUNCTION STREQUAL "FarmHash64" OR
+       HASH_FUNCTION STREQUAL "FarmHash128")
+  include_directories(hashes/farmhash/src)
+  configure_file(
+    ${CMAKE_SOURCE_DIR}/hashes/farmhash/config.h.in
+    ${CMAKE_BINARY_DIR}/hashes/farmhash/config.h
+    COPYONLY
+  )
+  add_library(farmhash STATIC hashes/farmhash/src/farmhash.cc)
+  target_include_directories(farmhash PRIVATE ${CMAKE_BINARY_DIR}/hashes/farmhash)
+  set_target_properties(farmhash PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native")
+  target_link_libraries(libompdataprof PRIVATE farmhash)
+elseif(HASH_FUNCTION STREQUAL "MeowHash")
   include_directories(hashes/meow_hash)
   set_source_files_properties(src/analyze.cc src/tool.cc
                               PROPERTIES COMPILE_FLAGS "-Wno-unused-function")
-elseif(HASH_FUNCTION STREQUAL "RAPIDHASH")
+elseif(HASH_FUNCTION STREQUAL "rapidhash")
   include_directories(hashes/rapidhash)
-elseif(HASH_FUNCTION STREQUAL "T1HA0")
+elseif(HASH_FUNCTION STREQUAL "t1ha0_ia32aes_avx" OR
+       HASH_FUNCTION STREQUAL "t1ha0_ia32aes_avx2" OR
+       HASH_FUNCTION STREQUAL "t1ha0_ia32aes_noavx" OR
+       HASH_FUNCTION STREQUAL "t1ha0_32le" OR
+       HASH_FUNCTION STREQUAL "t1h0a_32be" OR
+       HASH_FUNCTION STREQUAL "t1ha1_le" OR
+       HASH_FUNCTION STREQUAL "t1ha1_be" OR
+       HASH_FUNCTION STREQUAL "t1ha2_atonce")
   include_directories(hashes/t1ha)
   add_library(t1ha STATIC hashes/t1ha/src/t1ha0.c
                           hashes/t1ha/src/t1ha1.c
@@ -63,11 +98,15 @@ elseif(HASH_FUNCTION STREQUAL "T1HA0")
   set_target_properties(t1ha PROPERTIES C_STANDARD 11)
   set_target_properties(t1ha PROPERTIES C_STANDARD_REQUIRED ON)
   set_target_properties(t1ha PROPERTIES C_EXTENSIONS OFF)
-  # target_include_directories(t1ha PRIVATE hashes/t1ha/src)
   target_link_libraries(libompdataprof PRIVATE t1ha)
-elseif(HASH_FUNCTION STREQUAL "XXH3")
+elseif(HASH_FUNCTION STREQUAL "XXH32" OR
+       HASH_FUNCTION STREQUAL "XXH64" OR
+       HASH_FUNCTION STREQUAL "XXH3_64bits" OR
+       HASH_FUNCTION STREQUAL "XXH3_128bits")
   include_directories(hashes/xxHash)
+  add_library(xxhash STATIC hashes/xxHash/xxhash.c)
+  set_target_properties(xxhash PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native")
+  target_link_libraries(libompdataprof PRIVATE xxhash)
 else()
   message(FATAL_ERROR "Unsupported hash function: ${HASH_FUNCTION}")
 endif()
-
