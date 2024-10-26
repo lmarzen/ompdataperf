@@ -335,7 +335,7 @@ ompt_start_tool(unsigned int omp_version, const char *runtime_version) {
 
   s_data_op_log_ptr = new std::vector<data_op_info_t>();
 #ifdef ENABLE_COLLISION_CHECKING
-  s_collision_map_ptr = new std::map<uint64_t, std::set<data_info_t>>();
+  s_collision_map_ptr = new std::map<HASH_T, std::set<data_info_t>>();
 #endif // ENABLE_COLLISION_CHECKING
   ompt_start_tool_result_t *result = new ompt_start_tool_result_t;
   result->initialize = ompt_initialize;
