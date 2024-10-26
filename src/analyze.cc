@@ -1,14 +1,12 @@
 #include "analyze.hh"
 
+#include <cassert>
 #include <cmath>
 #include <deque>
 #include <iomanip>
 #include <iostream>
 #include <map>
 #include <sstream>
-
-#include <boost/container/flat_map.hpp>
-#include <boost/container/flat_set.hpp>
 
 using namespace std::chrono;
 

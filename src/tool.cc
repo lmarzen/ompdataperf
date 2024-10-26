@@ -5,10 +5,22 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/container/flat_set.hpp>
 #include <omp-tools.h>
-#include <rapidhash.h>
 
 #include "analyze.hh"
 #include "symbolizer.hh"
+
+#ifdef HASH_FUNCTION_RAPIDHASH
+  #include <rapidhash.h>
+  #define HASH(key, len) rapidhash(key, len)
+#elifdef HASH_FUNCTION_T1HA0
+  #include <t1ha.h>
+  #define HASH(key, len) t1ha0(key, len, 0)
+#elifdef HASH_FUNCTION_XXH3
+  #include <xxhash.h>
+  #define HASH(key, len) XXH3_64bits(key, len)
+#else
+  #error "invalid hash function"
+#endif
 
 using namespace std::chrono;
 
@@ -130,11 +142,11 @@ static void on_ompt_callback_target_data_op_emi(
     if (is_transfer_to_op(optype)) {
       assert(src_addr != nullptr);
       assert(dest_addr != nullptr);
-      hash = rapidhash(src_addr, bytes);
+      hash = HASH(src_addr, bytes);
     } else if (is_transfer_from_op(optype)) {
       assert(src_addr != nullptr);
       assert(dest_addr != nullptr);
-      hash = rapidhash(dest_addr, bytes);
+      hash = HASH(dest_addr, bytes);
     }
 
     steady_clock::time_point start_time;
