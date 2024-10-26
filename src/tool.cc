@@ -9,19 +9,6 @@
 #include "analyze.hh"
 #include "symbolizer.hh"
 
-#ifdef HASH_FUNCTION_RAPIDHASH
-  #include <rapidhash.h>
-  #define HASH(key, len) rapidhash(key, len)
-#elifdef HASH_FUNCTION_T1HA0
-  #include <t1ha.h>
-  #define HASH(key, len) t1ha0(key, len, 0)
-#elifdef HASH_FUNCTION_XXH3
-  #include <xxhash.h>
-  #define HASH(key, len) XXH3_64bits(key, len)
-#else
-  #error "invalid hash function"
-#endif
-
 using namespace std::chrono;
 
 namespace {
@@ -38,7 +25,7 @@ std::vector<data_op_info_t> *s_data_op_log_ptr;
 std::mutex s_data_op_log_mutex;
 
 #ifdef ENABLE_COLLISION_CHECKING
-std::map<uint64_t /*hash*/, std::set<data_info_t>> *s_collision_map_ptr;
+std::map<HASH_T, std::set<data_info_t>> *s_collision_map_ptr;
 std::mutex s_collision_map_mutex;
 #endif // ENABLE_COLLISION_CHECKING
 
@@ -71,8 +58,8 @@ ompt_function_lookup_t ompt_function_lookup;
  * It is the caller's responsibility to call 'free' on data.
  */
 void try_collision_map_insert(
-    std::map<uint64_t /*hash*/, std::set<data_info_t>> *collision_map_ptr,
-    uint64_t hash, void *data, size_t bytes) {
+    std::map<HASH_T, std::set<data_info_t>> *collision_map_ptr,
+    HASH_T hash, void *data, size_t bytes) {
   assert(data != nullptr);
 
   const data_info_t key(data, bytes);
@@ -138,15 +125,15 @@ static void on_ompt_callback_target_data_op_emi(
 
   } else if (endpoint == ompt_scope_end) {
     // commit end timestamp
-    uint64_t hash = 0;
+    HASH_T hash = {};
     if (is_transfer_to_op(optype)) {
       assert(src_addr != nullptr);
       assert(dest_addr != nullptr);
-      hash = HASH(src_addr, bytes);
+      hash = HASH_FN(src_addr, bytes);
     } else if (is_transfer_from_op(optype)) {
       assert(src_addr != nullptr);
       assert(dest_addr != nullptr);
-      hash = HASH(dest_addr, bytes);
+      hash = HASH_FN(dest_addr, bytes);
     }
 
     steady_clock::time_point start_time;

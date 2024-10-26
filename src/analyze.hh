@@ -12,6 +12,7 @@
 
 #include <omp-tools.h>
 
+#include "hash.hh"
 #include "symbolizer.hh"
 
 /* Data structure used to store details about each data transfer event.
@@ -26,7 +27,7 @@ typedef struct data_op_info {
   const void *codeptr_ra;
   std::chrono::steady_clock::time_point start_time;
   std::chrono::steady_clock::time_point end_time;
-  uint64_t hash; // hash of transferred data, unused for alloc/delete
+  HASH_T hash; // hash of transferred data, unused for alloc/delete
 } data_op_info_t;
 
 inline bool is_alloc_op(ompt_target_data_op_t optype) {
@@ -148,12 +149,11 @@ typedef struct data_info {
 } data_info_t;
 
 void try_collision_map_insert(
-    std::map<uint64_t /*hash*/, std::set<data_info_t>> *collision_map_ptr,
-    uint64_t hash, void *data, size_t bytes);
+    std::map<HASH_T, std::set<data_info_t>> *collision_map_ptr, HASH_T hash,
+    void *data, size_t bytes);
 void print_collision_summary(
-    const std::map<uint64_t /*hash*/, std::set<data_info_t>>
-        *collision_map_ptr);
-void free_data(const std::map<uint64_t /*hash*/, std::set<data_info_t>>
-                   *collision_map_ptr);
+    const std::map<HASH_T, std::set<data_info_t>> *collision_map_ptr);
+void free_data(
+    const std::map<HASH_T, std::set<data_info_t>> *collision_map_ptr);
 
 #endif // ENABLE_COLLISION_CHECKING

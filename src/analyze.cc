@@ -604,10 +604,10 @@ void analyze_redundant_transfers(
   // Map hashes and device_num of received data to the data op infos.
   // Create 2 received one for duplicate data transfers and one for round-trips,
   // since the round-trip algorithm needs to modify its.
-  std::map<std::pair<uint64_t /*hash*/, int /*dest_device_num*/>,
+  std::map<std::pair<HASH_T, int /*dest_device_num*/>,
            std::vector<const data_op_info_t *>>
       received_dd;
-  std::map<std::pair<uint64_t /*hash*/, int /*dest_device_num*/>,
+  std::map<std::pair<HASH_T, int /*dest_device_num*/>,
            std::deque<const data_op_info_t *>>
       received_rt;
   std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
@@ -618,7 +618,7 @@ void analyze_redundant_transfers(
     if (!is_transfer_op(entry.optype)) {
       continue;
     }
-    const std::pair<uint64_t, int> key(entry.hash, entry.dest_device_num);
+    const std::pair<HASH_T, int> key(entry.hash, entry.dest_device_num);
     received_dd[key].push_back(&entry);
     received_rt[key].push_back(&entry);
   }
@@ -643,8 +643,7 @@ void analyze_redundant_transfers(
   // _Round Trip Transfers_ are when data is transferred then the same data is
   // transferred back (unmodified).
   std::map<
-      std::tuple<uint64_t /*hash*/, int /*src_device_num*/,
-                 int /*dest_device_num*/>,
+      std::tuple<HASH_T, int /*src_device_num*/, int /*dest_device_num*/>,
       std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>>
       round_trip_transfers;
   for (const data_op_info_t &tx_entry : *data_op_log_ptr) {
@@ -654,21 +653,20 @@ void analyze_redundant_transfers(
 
     // Check if this data is later received by this device. If so, this is a
     // candidate for a round trip transfer.
-    const std::pair<uint64_t, int> rx_key(tx_entry.hash,
-                                          tx_entry.src_device_num);
+    const std::pair<HASH_T, int> rx_key(tx_entry.hash, tx_entry.src_device_num);
     const auto &rx_it = received_rt.find(rx_key);
     if (rx_it == received_rt.end() || rx_it->second.empty()) {
       // the round-trip is never completed, the data is never sent back
       continue;
     }
-    const std::tuple<uint64_t, int, int> trip_key(
+    const std::tuple<HASH_T, int, int> trip_key(
         tx_entry.hash, tx_entry.src_device_num, tx_entry.dest_device_num);
     const data_op_info_t *rx_entry = rx_it->second.front();
     const std::pair<const data_op_info_t *, const data_op_info_t *> tx_rx(
         &tx_entry, rx_entry);
     round_trip_transfers[trip_key].emplace_back(tx_rx);
-    const std::pair<uint64_t, int> tx_key(tx_entry.hash,
-                                          tx_entry.dest_device_num);
+    const std::pair<HASH_T, int> tx_key(tx_entry.hash,
+                                        tx_entry.dest_device_num);
     const auto &tx_it = received_rt.find(tx_key);
 #ifdef DEBUG
     const data_op_info_t *_tx_entry = tx_it->second.front();
@@ -914,8 +912,7 @@ void print_summary(const std::vector<data_op_info_t> *data_op_log_ptr,
 
 #ifdef ENABLE_COLLISION_CHECKING
 void print_collision_summary(
-    const std::map<uint64_t /*hash*/, std::set<data_info_t>>
-        *collision_map_ptr) {
+    const std::map<HASH_T, std::set<data_info_t>> *collision_map_ptr) {
 
   // count collisions
   uint64_t num_collisions = 0;
@@ -938,7 +935,7 @@ void print_collision_summary(
   return;
 }
 
-void free_data(const std::map<uint64_t /*hash*/, std::set<data_info_t>>
+void free_data(const std::map<HASH_T, std::set<data_info_t>>
                    *collision_map_ptr) {
   for (const auto &hash_set : *collision_map_ptr) {
     for (const data_info_t &entry : hash_set.second) {
