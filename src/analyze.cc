@@ -698,8 +698,8 @@ void analyze_redundant_transfers(
 
   // _Repeated Device Memory Allocations_ are when data is repeatedly
   // reallocated.
-  std::map<std::tuple<void * /*host_addr*/, void * /*tgt_addr*/,
-                      int /*tgt_device_num*/, size_t /*bytes*/>,
+  std::map<std::tuple<void * /*host_addr*/, int /*tgt_device_num*/,
+                      size_t /*bytes*/>,
            std::vector<std::pair<const data_op_info_t * /*alloc*/,
                                  const data_op_info_t * /*delete*/>>>
       repeated_allocs;
@@ -714,9 +714,9 @@ void analyze_redundant_transfers(
     } else if (is_delete_op(entry.optype)) {
       std::pair<void *, int> akey(entry.src_addr, entry.src_device_num);
       const data_op_info_t *alloc_entry = current_allocs.extract(akey).mapped();
-      std::tuple<void *, void *, int, size_t> rkey(
-          alloc_entry->src_addr, alloc_entry->dest_addr,
-          alloc_entry->dest_device_num, alloc_entry->bytes);
+      std::tuple<void *, int, size_t> rkey(alloc_entry->src_addr,
+                                           alloc_entry->dest_device_num,
+                                           alloc_entry->bytes);
       repeated_allocs[rkey].emplace_back(alloc_entry, &entry);
     } else {
       continue;
@@ -745,7 +745,7 @@ void analyze_redundant_transfers(
     }
     const duration<uint64_t, std::nano> total_duration =
         alloc_duration + delete_duration;
-    round_trip_durations.emplace(total_duration, &entry.second);
+    repeated_alloc_durations.emplace(total_duration, &entry.second);
   }
   print_repeated_allocs(symbolizer, repeated_alloc_durations, exec_time,
                         num_devices);
@@ -935,8 +935,8 @@ void print_collision_summary(
   return;
 }
 
-void free_data(const std::map<HASH_T, std::set<data_info_t>>
-                   *collision_map_ptr) {
+void free_data(
+    const std::map<HASH_T, std::set<data_info_t>> *collision_map_ptr) {
   for (const auto &hash_set : *collision_map_ptr) {
     for (const data_info_t &entry : hash_set.second) {
       if (entry.data == nullptr) {

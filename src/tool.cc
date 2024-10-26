@@ -2,8 +2,6 @@
 #include <map>
 #include <mutex>
 
-#include <boost/container/flat_map.hpp>
-#include <boost/container/flat_set.hpp>
 #include <omp-tools.h>
 
 #include "analyze.hh"
