@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 #include <map>
 #include <mutex>
@@ -56,8 +57,8 @@ ompt_function_lookup_t ompt_function_lookup;
  * It is the caller's responsibility to call 'free' on data.
  */
 void try_collision_map_insert(
-    std::map<HASH_T, std::set<data_info_t>> *collision_map_ptr,
-    HASH_T hash, void *data, size_t bytes) {
+    std::map<HASH_T, std::set<data_info_t>> *collision_map_ptr, HASH_T hash,
+    void *data, size_t bytes) {
   assert(data != nullptr);
 
   const data_info_t key(data, bytes);
