@@ -603,7 +603,7 @@ void print_peak_device_memory_allocation(
     const std::vector<uint64_t> &peak_allocated_bytes) {
   std::cerr << "\n=== OpenMP Peak Target Device Memory Allocation ===\n";
   const int num_devices = peak_allocated_bytes.size();
-  if (num_devices <= 1) {
+  if (num_devices < 1) {
     std::cerr << "  no target devices detected\n";
     return;
   }
@@ -612,8 +612,7 @@ void print_peak_device_memory_allocation(
             << std::setw(f_w_bytes) << "bytes\n";
   // clang-format on
 
-  // last device is host, which will always be 0, so don't print it.
-  for (int i = 0; i < num_devices - 1; ++i) {
+  for (int i = 0; i < num_devices; ++i) {
     // clang-format off
     std::cerr << format_device_num(num_devices, i, f_w_device_id)
               << format_uint(peak_allocated_bytes[i], f_w_bytes)
