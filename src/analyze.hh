@@ -113,6 +113,8 @@ void print_potential_resource_savings(
                                               const data_op_info_t *>> *>>
         &repeated_alloc_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time);
+void print_peak_device_memory_allocation(
+    const std::vector<uint64_t> &peak_allocated_bytes);
 void analyze_redundant_transfers(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
@@ -122,7 +124,7 @@ void print_codeptr_durations(
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
                   const std::vector<const data_op_info_t *> *>>
         &codeptr_durations,
-    std::chrono::duration<uint64_t, std::nano> exec_time);
+    std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void analyze_codeptr_durations(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
     std::chrono::duration<uint64_t, std::nano> exec_time);

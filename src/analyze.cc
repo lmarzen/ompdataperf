@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <deque>
 #include <iomanip>
 #include <iostream>
@@ -489,7 +490,7 @@ void print_potential_resource_savings(
                   const std::vector<std::pair<const data_op_info_t *,
                                               const data_op_info_t *>> *>>
         &repeated_alloc_durations, // TODO
-    duration<uint64_t, std::nano> exec_time) {
+    duration<uint64_t, std::nano> exec_time, int num_devices) {
 
   duration<uint64_t, std::nano> pot_dd_time(0);
   float pot_dd_time_percent = 0.f;
@@ -595,6 +596,30 @@ void print_potential_resource_savings(
             << format_uint(pot_ad_bytes, w)
             << "\n";
   // clang-format on
+  return;
+}
+
+void print_peak_device_memory_allocation(
+    const std::vector<uint64_t> &peak_allocated_bytes) {
+  std::cerr << "\n=== OpenMP Peak Target Device Memory Allocation ===\n";
+  const int num_devices = peak_allocated_bytes.size();
+  if (num_devices <= 1) {
+    std::cerr << "  no target devices detected\n";
+    return;
+  }
+  // clang-format off
+  std::cerr << std::left << std::setw(f_w_device_id) << "  tgt device"
+            << std::setw(f_w_bytes) << "bytes\n";
+  // clang-format on
+
+  // last device is host, which will always be 0, so don't print it.
+  for (int i = 0; i < num_devices - 1; ++i) {
+    // clang-format off
+    std::cerr << format_device_num(num_devices, i, f_w_device_id)
+              << format_uint(peak_allocated_bytes[i], f_w_bytes)
+              << "\n";
+    // clang-format on
+  }
   return;
 }
 
@@ -706,11 +731,19 @@ void analyze_redundant_transfers(
   std::map<std::pair<void * /*tgt_addr*/, int /*tgt_device_num*/>,
            const data_op_info_t * /*alloc*/>
       current_allocs;
+  std::vector<uint64_t> num_allocated_bytes(num_devices, 0);
+  std::vector<uint64_t> peak_allocated_bytes(num_devices, 0);
 
   for (const data_op_info_t &entry : *data_op_log_ptr) {
     if (is_alloc_op(entry.optype)) {
       std::pair<void *, int> akey(entry.dest_addr, entry.dest_device_num);
       current_allocs[akey] = &entry;
+      // update peak memory usage
+      const int id = entry.dest_device_num;
+      num_allocated_bytes[id] += entry.bytes;
+      if (num_allocated_bytes[id] > peak_allocated_bytes[id]) {
+        peak_allocated_bytes[id] = num_allocated_bytes[id];
+      }
     } else if (is_delete_op(entry.optype)) {
       std::pair<void *, int> akey(entry.src_addr, entry.src_device_num);
       const data_op_info_t *alloc_entry = current_allocs.extract(akey).mapped();
@@ -718,6 +751,7 @@ void analyze_redundant_transfers(
                                            alloc_entry->dest_device_num,
                                            alloc_entry->bytes);
       repeated_allocs[rkey].emplace_back(alloc_entry, &entry);
+      num_allocated_bytes[alloc_entry->dest_device_num] -= alloc_entry->bytes;
     } else {
       continue;
     }
@@ -753,6 +787,8 @@ void analyze_redundant_transfers(
   print_potential_resource_savings(duplicate_transfers_durations,
                                    round_trip_durations,
                                    repeated_alloc_durations, exec_time);
+
+  print_peak_device_memory_allocation(peak_allocated_bytes);
   return;
 }
 
