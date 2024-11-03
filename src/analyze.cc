@@ -489,7 +489,7 @@ void print_potential_resource_savings(
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
                   const std::vector<std::pair<const data_op_info_t *,
                                               const data_op_info_t *>> *>>
-        &repeated_alloc_durations, // TODO
+        &repeated_alloc_durations,
     duration<uint64_t, std::nano> exec_time, int num_devices) {
 
   duration<uint64_t, std::nano> pot_dd_time(0);
@@ -784,9 +784,9 @@ void analyze_redundant_transfers(
   print_repeated_allocs(symbolizer, repeated_alloc_durations, exec_time,
                         num_devices);
 
-  print_potential_resource_savings(duplicate_transfers_durations,
-                                   round_trip_durations,
-                                   repeated_alloc_durations, exec_time);
+  print_potential_resource_savings(
+      duplicate_transfers_durations, round_trip_durations,
+      repeated_alloc_durations, exec_time, num_devices);
 
   print_peak_device_memory_allocation(peak_allocated_bytes);
   return;
