@@ -608,8 +608,9 @@ void print_peak_device_memory_allocation(
     return;
   }
   // clang-format off
-  std::cerr << std::left << std::setw(f_w_device_id) << "   tgt device"
-            << std::right << std::setw(f_w_bytes) << "  bytes\n";
+  std::cerr << std::left << std::setw(f_w_device_id) << "  tgt device"
+            << std::right << std::setw(f_w_bytes) << "  bytes"
+            << "\n";
   // clang-format on
 
   for (int i = 0; i < num_devices; ++i) {
