@@ -272,8 +272,7 @@ void ompt_finalize(ompt_data_t *data) {
   Symbolizer symbolizer;
   analyze_redundant_transfers(symbolizer, s_data_op_log_ptr, exec_time,
                               num_devices);
-  analyze_codeptr_durations(symbolizer, s_data_op_log_ptr, exec_time,
-                            num_devices);
+  analyze_codeptr_durations(symbolizer, s_data_op_log_ptr, exec_time);
   print_summary(s_data_op_log_ptr, exec_time);
 #ifdef ENABLE_COLLISION_CHECKING
   print_collision_summary(s_collision_map_ptr);
