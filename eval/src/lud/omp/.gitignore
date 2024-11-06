@@ -1,0 +1,3 @@
+lud_omp
+lud_omp_offload
+*.o

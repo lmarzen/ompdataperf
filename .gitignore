@@ -1,2 +1,7 @@
 .cache
+.vscode
 build
+eval/data/*
+!eval/data/.gitkeep
+eval/rodinia_3.1
+eval/rodinia_3.1.tar.bz2
