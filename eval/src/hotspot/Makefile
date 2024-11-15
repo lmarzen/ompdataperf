@@ -1,7 +1,12 @@
 # C compiler
 CC = clang++
-#CC_FLAGS = -fopenmp -O2
-CC_FLAGS = -g -O0 -fopenmp
+CC_FLAGS =
+ifeq ($(DEBUG), 1)
+  CC_FLAGS += -DDEBUG -g3 -O0 -fopenmp
+else
+  CC_FLAGS += -DNDEBUG -O2 -fopenmp
+  DEBUG := 0
+endif
 OFFLOAD_CC_FLAGS = -fopenmp-targets=nvptx64
 
 all: hotspot hotspot_offload 

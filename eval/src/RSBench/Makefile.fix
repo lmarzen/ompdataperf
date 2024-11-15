@@ -3,8 +3,13 @@
 #===============================================================================
 
 COMPILER  = llvm
-OPTIMIZE  = yes
-DEBUG     = no
+ifeq ($(DEBUG), 1)
+  DEBUG     = yes
+  OPTIMIZE  = no
+else
+  DEBUG     = no
+  OPTIMIZE  = yes
+endif
 PROFILE   = no
 
 #===============================================================================
@@ -65,7 +70,7 @@ endif
 
 # Debug Flags
 ifeq ($(DEBUG),yes)
-  CFLAGS += -g3 -O1
+  CFLAGS += -g3 -O0
   LDFLAGS += -g3
 endif
 

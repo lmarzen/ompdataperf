@@ -1,8 +1,14 @@
 # C compiler
 CC = clang++
 ICC = clang++
-CC_FLAGS = -fopenmp -fopenmp-targets=nvptx64 -O2
+CC_FLAGS = -fopenmp -fopenmp-targets=nvptx64
 #CC_FLAGS = -g3 -fopenmp -fopenmp-targets=nvptx64 -O0
+ifeq ($(DEBUG), 1)
+  CC_FLAGS += -DDEBUG -g3 -O0
+else
+  CC_FLAGS += -DNDEBUG -O2
+  DEBUG := 0
+endif
 
 all: bfs bfs_offload bfs_offload_fix
 

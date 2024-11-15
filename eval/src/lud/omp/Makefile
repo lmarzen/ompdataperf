@@ -3,7 +3,11 @@
 #
 
 # DEBUG can be set to YES to include debugging info, or NO otherwise
-DEBUG          := NO
+ifeq ($(DEBUG), 1)
+  DEBUG          := YES
+else
+  DEBUG          := NO
+endif
 
 # PROFILE can be set to YES to include profiling info, or NO otherwise
 PROFILE        := NO
@@ -29,7 +33,7 @@ RELEASE_CDEFS  :=
 COMMON_CDEFS   := 
 
 # ------------  linker flags  --------------------------------------------------
-DEBUG_LDFLAGS    := -g
+DEBUG_LDFLAGS    := -g3
 RELEASE_LDFLAGS  := 
 COMMON_LDFLAGS   := -fopenmp 
 

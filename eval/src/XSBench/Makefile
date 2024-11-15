@@ -3,8 +3,13 @@
 #===============================================================================
 
 COMPILER    ?= llvm
-OPTIMIZE    ?= yes
-DEBUG       ?= no
+ifeq ($(DEBUG), 1)
+  DEBUG     = yes
+  OPTIMIZE  = no
+else
+  DEBUG     = no
+  OPTIMIZE  = yes
+endif
 PROFILE     ?= no
 MPI         ?= no
 

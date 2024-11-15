@@ -13,7 +13,7 @@ MINIFE_MATRIX_TYPE = -DMINIFE_CSR_MATRIX
 
 #-----------------------------------------------------------------------
 
-CFLAGS = -v -O3 -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda \
+CFLAGS = -v -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda \
 	--cuda-path=$(CUDA_ROOT) -ffp-contract=fast \
 	-march=native \
 	-fslp-vectorize-aggressive \
@@ -24,6 +24,13 @@ CFLAGS = -v -O3 -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda \
 #	-S -emit-llvm
 #-mllvm -regalloc=pbqp
 #CFLAGS = -qreport -O3 -fopenmp -mcpu=power8 -mtune=power8
+
+ifeq ($(DEBUG), 1)
+  CFLAGS += -DDEBUG -g3 -O0
+else
+  CFLAGS += -DNDEBUG -O3
+  DEBUG := 0
+endif
 
 CXXFLAGS = $(CFLAGS)
 

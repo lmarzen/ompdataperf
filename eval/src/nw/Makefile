@@ -1,8 +1,13 @@
 # C compiler
 CC = clang++
-#CC_FLAGS = -O3 -fopenmp
-CC_FLAGS = -g3 -O0 -fopenmp
+CC_FLAGS = -fopenmp
 OFFLOAD_CC_FLAGS = -fopenmp-targets=nvptx64
+ifeq ($(DEBUG), 1)
+  CC_FLAGS += -DDEBUG -g3 -O0
+else
+  CC_FLAGS += -DNDEBUG -O3
+  DEBUG := 0
+endif
 
 all: needle needle_offload
 
