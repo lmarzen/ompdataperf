@@ -1,10 +1,10 @@
 # C compiler
 CC = clang++
-CC_FLAGS =
+CC_FLAGS = -fopenmp
 ifeq ($(DEBUG), 1)
-  CC_FLAGS += -DDEBUG -g3 -O0 -fopenmp
+  CC_FLAGS += -DDEBUG -g3 -O0
 else
-  CC_FLAGS += -DNDEBUG -O2 -fopenmp
+  CC_FLAGS += -DNDEBUG -O2
   DEBUG := 0
 endif
 OFFLOAD_CC_FLAGS = -fopenmp-targets=nvptx64

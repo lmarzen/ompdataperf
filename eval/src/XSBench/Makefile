@@ -4,10 +4,9 @@
 
 COMPILER    ?= llvm
 ifeq ($(DEBUG), 1)
-  DEBUG     = yes
   OPTIMIZE  = no
 else
-  DEBUG     = no
+  DEBUG     = 0
   OPTIMIZE  = yes
 endif
 PROFILE     ?= no
@@ -76,7 +75,7 @@ ifeq ($(COMPILER),amd)
 endif
 
 # Debug Flags
-ifeq ($(DEBUG),yes)
+ifeq ($(DEBUG),1)
   CFLAGS += -g3 -O0
   LDFLAGS  += -g3
 endif

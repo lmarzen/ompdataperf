@@ -3,11 +3,6 @@
 #
 
 # DEBUG can be set to YES to include debugging info, or NO otherwise
-ifeq ($(DEBUG), 1)
-  DEBUG          := YES
-else
-  DEBUG          := NO
-endif
 
 # PROFILE can be set to YES to include profiling info, or NO otherwise
 PROFILE        := NO
@@ -35,9 +30,9 @@ COMMON_CDEFS   :=
 # ------------  linker flags  --------------------------------------------------
 DEBUG_LDFLAGS    := -g3
 RELEASE_LDFLAGS  := 
-COMMON_LDFLAGS   := -fopenmp 
+COMMON_LDFLAGS   := -fopenmp -Wno-uninitialized -Wno-return-type
 
-ifeq (YES, ${DEBUG})
+ifeq (1, ${DEBUG})
   CFLAGS       := ${DEBUG_CFLAGS} ${DEBUG_CDEFS}
   CXXFLAGS     := ${DEBUG_CXXFLAGS} ${DEBUG_CDEFS}
   LDFLAGS      := ${DEBUG_LDFLAGS}

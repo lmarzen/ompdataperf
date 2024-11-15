@@ -4,10 +4,9 @@
 
 COMPILER  = llvm
 ifeq ($(DEBUG), 1)
-  DEBUG     = yes
   OPTIMIZE  = no
 else
-  DEBUG     = no
+  DEBUG     = 0
   OPTIMIZE  = yes
 endif
 PROFILE   = no
@@ -47,7 +46,7 @@ endif
 # LLVM Compiler Targeting A100 -- Change SM Level to Target Other GPUs
 ifeq ($(COMPILER),llvm)
   CC = clang
-  CFLAGS += -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda -Xopenmp-target
+  CFLAGS += -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
 endif
 
 # IBM XL Compiler
@@ -69,7 +68,7 @@ ifeq ($(COMPILER),amd)
 endif
 
 # Debug Flags
-ifeq ($(DEBUG),yes)
+ifeq ($(DEBUG),1)
   CFLAGS += -g3 -O0
   LDFLAGS += -g3
 endif

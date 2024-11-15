@@ -1,6 +1,6 @@
 # C compiler
 CC = clang++
-CC_FLAGS = -fopenmp
+CC_FLAGS = -fopenmp -Wno-unused-comparison
 OFFLOAD_CC_FLAGS = -fopenmp-targets=nvptx64
 ifeq ($(DEBUG), 1)
   CC_FLAGS += -DDEBUG -g3 -O0

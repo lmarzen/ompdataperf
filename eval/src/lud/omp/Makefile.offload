@@ -3,11 +3,6 @@
 #
 
 # DEBUG can be set to YES to include debugging info, or NO otherwise
-ifeq ($(DEBUG), 1)
-  DEBUG          := YES
-else
-  DEBUG          := NO
-endif
 
 # PROFILE can be set to YES to include profiling info, or NO otherwise
 PROFILE        := NO
@@ -25,7 +20,7 @@ CXX             := clang++
 # ------------  compiler flags  ------------------------------------------------  -qopt-gather-scatter-unroll=7
 DEBUG_CFLAGS    := -Wall -O0 -g3
 RELEASE_CFLAGS  := -Wall -O3
-COMMON_CFLAGS   := -fopenmp -fopenmp-targets=nvptx64
+COMMON_CFLAGS   := -fopenmp -fopenmp-targets=nvptx64 -Wno-uninitialized -Wno-return-type
 
 # ------------  compiler defs  ------------------------------------------------
 DEBUG_CDEFS    := -DOMP_OFFLOAD 
@@ -37,7 +32,7 @@ DEBUG_LDFLAGS    := -g3
 RELEASE_LDFLAGS  := 
 COMMON_LDFLAGS   := -fopenmp -fopenmp-targets=nvptx64
 
-ifeq (YES, ${DEBUG})
+ifeq (1, ${DEBUG})
   CFLAGS       := ${DEBUG_CFLAGS} ${DEBUG_CDEFS}
   CXXFLAGS     := ${DEBUG_CXXFLAGS} ${DEBUG_CDEFS}
   LDFLAGS      := ${DEBUG_LDFLAGS}
