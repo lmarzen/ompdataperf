@@ -18,4 +18,4 @@ hotspot_offload: hotspot_openmp.cpp Makefile
 	$(CC) $(CC_FLAGS) $(OFFLOAD_CC_FLAGS) -DOMP_OFFLOAD hotspot_openmp.cpp -o hotspot_offload
 
 clean:
-	rm -f hotspot hotspot_offload
+	rm -f hotspot hotspot_offload *.out

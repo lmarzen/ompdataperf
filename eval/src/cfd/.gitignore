@@ -7,3 +7,6 @@ pre_euler3d
 pre_euler3d_cpu
 pre_euler3d_double
 pre_euler3d_cpu_double
+density
+density_energy
+momentum

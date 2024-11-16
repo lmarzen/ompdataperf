@@ -1,9 +1,9 @@
 .PHONY: all clean 
 .PHONY: bfs cfd hotspot lud miniFE nw RSBench XSBench
-.PHONY: bfs_clean cfd_clean hotspot_clean lud_clean miniFE_clean nw RSBench_clean XSBench_clean
+.PHONY: bfs_clean cfd_clean hotspot_clean lud_clean miniFE_clean nw_clean RSBench_clean XSBench_clean
 
 all: bfs cfd hotspot lud miniFE nw RSBench XSBench
-clean: bfs_clean cfd_clean hotspot_clean lud_clean miniFE_clean nw RSBench_clean XSBench_clean
+clean: bfs_clean cfd_clean hotspot_clean lud_clean miniFE_clean nw_clean RSBench_clean XSBench_clean
 
 ifeq ($(DEBUG), 1)
 else

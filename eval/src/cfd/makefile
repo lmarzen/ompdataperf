@@ -53,3 +53,7 @@ clean:
 	rm -f pre_euler3d_cpu
 #	rm -f pre_euler3d_double
 	rm -f pre_euler3d_cpu_double
+
+	rm -f density
+	rm -f density_energy
+	rm -f momentum

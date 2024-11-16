@@ -43,7 +43,7 @@ void lud_diagonal_omp (float* a, int size, int offset)
 void lud_omp(float *a, int size)
 {
     int offset, chunk_idx, size_inter, chunks_in_inter_row, chunks_per_inter;
-
+printf("%d: %p\n", size, a);
 #ifdef OMP_OFFLOAD
 #pragma omp target map(to: size) map(a[0:size*size])
 #endif

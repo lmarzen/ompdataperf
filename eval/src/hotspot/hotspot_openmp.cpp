@@ -314,7 +314,7 @@ int main(int argc, char **argv)
     long long end_time = get_time();
 
     printf("Ending simulation\n");
-    printf("Total time: %.3f seconds\n", ((float) (end_time - start_time)) / (1000*1000));
+    printf("Total time: %.6f seconds\n", ((float) (end_time - start_time)) / (1000*1000));
 
     writeoutput((1&sim_time) ? result : temp, grid_rows, grid_cols, ofile);
 

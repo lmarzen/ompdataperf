@@ -18,4 +18,4 @@ needle_offload:
 	$(CC) $(CC_FLAGS) $(OFFLOAD_CC_FLAGS) -DOMP_OFFLOAD needle.cpp -o needle_offload
 
 clean:
-	rm -f needle needle_offload
+	rm -f needle needle_offload result.txt
