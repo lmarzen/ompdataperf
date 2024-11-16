@@ -23,8 +23,7 @@ euler3d_cpu: euler3d_cpu.cpp
 	clang++ $(CFLAGS) -Dblock_length=$(OMP_NUM_THREADS) -fopenmp euler3d_cpu.cpp -o euler3d_cpu
 
 euler3d_cpu_offload:
-	#clang++ -O3 -DOMP_OFFLOAD -Dblock_length=$(MIC_OMP_NUM_THREADS) -fopenmp -offload-option,mic,compiler,"-no-opt-prefetch" euler3d_cpu.cpp -o euler3d_cpu_offload
-	clang++ $(CFLAGS) -DOMP_OFFLOAD -Dblock_length=$(MIC_OMP_NUM_THREADS) -fopenmp -offload-option,mic,compiler,"-no-opt-prefetch" euler3d_cpu.cpp -o euler3d_cpu_offload
+	clang++ $(CFLAGS) -DOMP_OFFLOAD -Dblock_length=$(MIC_OMP_NUM_THREADS) -fopenmp -fopenmp-targets=nvptx64 euler3d_cpu.cpp -o euler3d_cpu_offload
 
 euler3d_cpu_double: euler3d_cpu_double.cpp
 	clang++ -O3 -Dblock_length=$(OMP_NUM_THREADS) -fopenmp euler3d_cpu_double.cpp -o euler3d_cpu_double
