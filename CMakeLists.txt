@@ -36,6 +36,14 @@ else()
   message(STATUS "Collision check disabled")
 endif()
 
+option(MEASURE_HASHING_OVERHEAD "Times how long it takes to perform hashing of data transfers." OFF)
+if(MEASURE_HASHING_OVERHEAD)
+  message(STATUS "Measuring hashing overhead")
+  add_compile_definitions(MEASURE_HASHING_OVERHEAD)
+else()
+  message(STATUS "Not measuring hashing overhead")
+endif()
+
 # Set a default hash function if none is provided
 set(HASH_FUNCTION "rapidhash" CACHE STRING "Hash function to use")
 add_compile_definitions(HASH_FUNCTION_${HASH_FUNCTION})

@@ -983,4 +983,18 @@ void free_data(
   }
   return;
 }
-#endif
+#endif // ENABLE_COLLISION_CHECKING
+
+#ifdef MEASURE_HASHING_OVERHEAD
+void print_hash_overhead_summary(duration<uint64_t, std::nano> overhead,
+                                 unsigned int count) {
+  uint64_t avg = overhead.count() / count;
+  // clang-format off
+  std::cerr << "\n  hash overhead "
+            << format_duration(overhead.count(), f_w) << "\n";
+  std::cerr <<   "  avg time/hash "
+            << format_duration(avg, f_w) << "\n";
+  // clang-format on
+  return;
+}
+#endif // MEASURE_HASHING_OVERHEAD

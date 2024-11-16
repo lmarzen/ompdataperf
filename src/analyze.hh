@@ -159,3 +159,8 @@ void free_data(
     const std::map<HASH_T, std::set<data_info_t>> *collision_map_ptr);
 
 #endif // ENABLE_COLLISION_CHECKING
+
+#ifdef MEASURE_HASHING_OVERHEAD
+void print_hash_overhead_summary(
+    std::chrono::duration<uint64_t, std::nano> overhead, unsigned int count);
+#endif // MEASURE_HASHING_OVERHEAD

@@ -1,4 +1,5 @@
 #include <cassert>
+#include <chrono>
 #include <iostream>
 #include <map>
 #include <mutex>
@@ -27,6 +28,26 @@ std::mutex s_data_op_log_mutex;
 std::map<HASH_T, std::set<data_info_t>> *s_collision_map_ptr;
 std::mutex s_collision_map_mutex;
 #endif // ENABLE_COLLISION_CHECKING
+
+#ifdef MEASURE_HASHING_OVERHEAD
+duration<uint64_t, std::nano> s_hash_overhead;
+unsigned int s_hash_count;
+std::mutex s_hash_overhead_mutex;
+
+HASH_T hash_fn_measure(void *key, size_t len) {
+  steady_clock::time_point start_time = steady_clock::now();
+  HASH_T hash = HASH_FN(key, len);
+  steady_clock::time_point end_time = steady_clock::now();
+  duration<uint64_t, std::nano> overhead = end_time - start_time;
+  s_hash_overhead_mutex.lock();
+  s_hash_overhead += overhead;
+  s_hash_count += 1;
+  s_hash_overhead_mutex.unlock();
+  return hash;
+}
+#undef HASH_FN
+#define HASH_FN(key, len) hash_fn_measure(key, len)
+#endif // MEASURE_HASHING_OVERHEAD
 
 /* Binding Entry Points in the OMPT Callback Interface
  */
@@ -278,6 +299,9 @@ void ompt_finalize(ompt_data_t *data) {
   print_collision_summary(s_collision_map_ptr);
   free_data(s_collision_map_ptr);
 #endif
+#ifdef MEASURE_HASHING_OVERHEAD
+  print_hash_overhead_summary(s_hash_overhead, s_hash_count);
+#endif
   const steady_clock::time_point analysis_end = steady_clock::now();
   const duration<uint64_t, std::nano> analysis_time =
       analysis_end - analysis_start;
@@ -285,7 +309,7 @@ void ompt_finalize(ompt_data_t *data) {
   // clang-format off
   std::cerr << "\n  execution time "
             << format_duration(exec_time.count(), 10) << "\n";
-  std::cerr << "  analysis time  "
+  std::cerr <<   "  analysis time  "
             << format_duration(analysis_time.count(), 10) << "\n";
   // clang-format on
 
