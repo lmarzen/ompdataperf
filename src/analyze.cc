@@ -1009,9 +1009,15 @@ void print_hash_overhead_summary(
     bytes += entry.bytes;
   }
 
-  const uint64_t time_per_hash = overhead.count() / count;
+  uint64_t time_per_hash = 0;
+  if (count > 0) {
+    time_per_hash = overhead.count() / count;
+  }
   // B / ns = GB / s
-  const float gb_per_s = bytes / ((float)overhead.count());
+  float gb_per_s = 0;
+  if (overhead.count() > 0) {
+    gb_per_s = bytes / ((float)overhead.count());
+  }
   // clang-format off
   std::cerr << "\n  bytes hashed   "
             << format_uint(bytes, f_w) << "\n";
