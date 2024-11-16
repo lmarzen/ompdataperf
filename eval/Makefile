@@ -50,8 +50,8 @@ lud_clean:
 	$(MAKE) -j -C src/lud -f Makefile clean DEBUG=$(DEBUG)
 
 miniFE_clean:
-	$(MAKE) -j -C src/miniFE/src-openmp45-opt -f Makefile clean DEBUG=$(DEBUG)
-	$(MAKE) -j -C src/miniFE/src-openmp45-opt-fix -f Makefile clean DEBUG=$(DEBUG)
+	$(MAKE) -j -C src/miniFE/src-openmp45-opt -f Makefile realclean DEBUG=$(DEBUG)
+	$(MAKE) -j -C src/miniFE/src-openmp45-opt-fix -f Makefile realclean DEBUG=$(DEBUG)
 
 nw_clean:
 	$(MAKE) -j -C src/nw -f Makefile clean DEBUG=$(DEBUG)
