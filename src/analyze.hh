@@ -65,7 +65,9 @@ inline bool is_async_op(ompt_target_data_op_t optype) {
 }
 
 std::string format_uint(uint64_t value, int width);
-std::string format_percent(float percent, int width);
+std::string format_float(float value, int width);
+std::string format_percent(float percent, int width, float precision,
+                           const std::string &label);
 std::string format_duration(uint64_t ns, int width);
 std::string format_optype(ompt_target_data_op_t optype, int width);
 std::string format_symbol(Symbolizer &symbolizer, const void *codeptr_ra);
@@ -162,5 +164,6 @@ void free_data(
 
 #ifdef MEASURE_HASHING_OVERHEAD
 void print_hash_overhead_summary(
-    std::chrono::duration<uint64_t, std::nano> overhead, unsigned int count);
+    const std::vector<data_op_info_t> *data_op_log_ptr,
+    std::chrono::duration<uint64_t, std::nano> overhead);
 #endif // MEASURE_HASHING_OVERHEAD

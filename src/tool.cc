@@ -31,7 +31,6 @@ std::mutex s_collision_map_mutex;
 
 #ifdef MEASURE_HASHING_OVERHEAD
 duration<uint64_t, std::nano> s_hash_overhead;
-unsigned int s_hash_count;
 std::mutex s_hash_overhead_mutex;
 
 HASH_T hash_fn_measure(void *key, size_t len) {
@@ -41,7 +40,6 @@ HASH_T hash_fn_measure(void *key, size_t len) {
   duration<uint64_t, std::nano> overhead = end_time - start_time;
   s_hash_overhead_mutex.lock();
   s_hash_overhead += overhead;
-  s_hash_count += 1;
   s_hash_overhead_mutex.unlock();
   return hash;
 }
@@ -300,7 +298,7 @@ void ompt_finalize(ompt_data_t *data) {
   free_data(s_collision_map_ptr);
 #endif
 #ifdef MEASURE_HASHING_OVERHEAD
-  print_hash_overhead_summary(s_hash_overhead, s_hash_count);
+  print_hash_overhead_summary(s_data_op_log_ptr, s_hash_overhead);
 #endif
   const steady_clock::time_point analysis_end = steady_clock::now();
   const duration<uint64_t, std::nano> analysis_time =

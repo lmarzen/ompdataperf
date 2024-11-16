@@ -32,16 +32,26 @@ std::string format_uint(uint64_t value, int width) {
   return oss.str();
 }
 
-std::string format_percent(float percent, int width) {
-  assert(width > 1);
+std::string format_float(float value, int width, float precision,
+                         const std::string &label) {
+  assert(width > 0);
   std::ostringstream oss;
-  constexpr int decimals = 2;
-  constexpr float precision = 0.01; // pow is not constexpr, so hard coded :(
-  percent *= 100;
-  percent = round_to(percent, precision);
-  oss << std::setw(width - 1) << std::fixed << std::showpoint
-      << std::setprecision(decimals) << percent << "%";
+  value = round_to(value, precision);
+  int decimals = 0;
+  while (precision < 1.f) {
+    precision *= 10;
+    decimals += 1;
+  }
+  const int label_width = label.length();
+  oss << std::setw(width - label_width) << std::fixed << std::showpoint
+      << std::setprecision(decimals) << value << label;
   return oss.str();
+}
+
+std::string format_percent(float percent, int width) {
+  constexpr float precision = 0.01;
+  percent *= 100;
+  return format_float(percent, width, precision, "%");
 }
 
 std::string format_duration(uint64_t ns, int width) {
@@ -986,14 +996,29 @@ void free_data(
 #endif // ENABLE_COLLISION_CHECKING
 
 #ifdef MEASURE_HASHING_OVERHEAD
-void print_hash_overhead_summary(duration<uint64_t, std::nano> overhead,
-                                 unsigned int count) {
-  uint64_t avg = overhead.count() / count;
+void print_hash_overhead_summary(
+    const std::vector<data_op_info_t> *data_op_log_ptr,
+    duration<uint64_t, std::nano> overhead) {
+  uint64_t count = 0;
+  uint64_t bytes = 0;
+  for (const data_op_info_t &entry : *data_op_log_ptr) {
+    if (!is_transfer_op(entry.optype)) {
+      continue;
+    }
+    count += 1;
+    bytes += entry.bytes;
+  }
+
+  const uint64_t time_per_hash = overhead.count() / count;
+  const float gb = bytes / ((float)(2 << 30));
+  const float gb_per_s = gb / (overhead.count() / 1'000'000'000.f);
   // clang-format off
   std::cerr << "\n  hash overhead "
             << format_duration(overhead.count(), f_w) << "\n";
   std::cerr <<   "  avg time/hash "
-            << format_duration(avg, f_w) << "\n";
+            << format_duration(time_per_hash, f_w) << "\n";
+  std::cerr <<   "  avg hash rate "
+            << format_float(gb_per_s, f_w, 0.001, "GB/s") << "\n";
   // clang-format on
   return;
 }
