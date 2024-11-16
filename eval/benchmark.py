@@ -2,9 +2,12 @@ import subprocess
 import re
 import os
 from statistics import mean
+from collections import defaultdict
 
 eval_dir = os.getcwd()
-profiler_command = f"{eval_dir}/../build/ompdataprof"
+build_dir = f"{eval_dir}/../build"
+profiler_command = f"{build_dir}/ompdataprof"
+warmup_runs = 3
 repetitions = 30
 
 benchmarks = [
@@ -142,33 +145,55 @@ benchmarks = [
     },
 ]
 
+hashes = ["CityHash32", "CityHash64", "CityHash128", "CityHashCrc128",
+          "FarmHash32", "FarmHash64", "FarmHash128",
+          "MeowHash",
+          "rapidhash",
+          "t1ha0_ia32aes_avx", "t1ha0_ia32aes_avx2", "t1ha0_ia32aes_noavx", "t1ha0_32le", "t1ha1_le", "t1ha2_atonce",
+          "XXH32", "XXH64", "XXH3_64bits", "XXH3_128bits",
+          ]
+
 def run_benchmark(directory, command, regex, unit, profiler=False):
     """Run the benchmark command in a specific directory and extract execution times."""
     times = []
     profiler_prefix = profiler_command if profiler else ""
     full_command = f"{profiler_prefix} {command}".strip()
 
-    for i in range(repetitions):
+    for i in range(repetitions + warmup_runs):
         current_dir = os.getcwd()
         try:
             # Change to the benchmark's directory
             os.chdir(directory)
 
             # Run the command
-            print(f"Running: {full_command} (Run {i + 1}/{repetitions}) in {directory}")
+            if (i < warmup_runs):
+                print(f"Running: {full_command} (Warmup {i + 1}/{warmup_runs}) in {directory}")
+            else:
+                print(f"Running: {full_command} (Run {i + 1 - warmup_runs}/{repetitions}) in {directory}")
+
             result = subprocess.run(full_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             output = result.stdout + result.stderr
 
             # Change back to the original directory
             os.chdir(current_dir)
 
+            if (i < warmup_runs):
+                continue
+
+            #print(f"output: {output}")
             # Extract the execution time using the regex
             match = re.search(regex, output)
             if match:
-                if unit == "s":
+                if unit == "s" or (unit == "auto" and match.group(2) == "s"):
                     times.append(float(match.group(1)))
-                if unit == "ms":
+                elif unit == "ms" or (unit == "auto" and match.group(2) == "ms"):
                     times.append(float(match.group(1))/1000.0)
+                elif unit == "µs" or (unit == "auto" and match.group(2) == "µs"):
+                    times.append(float(match.group(1))/1000000.0)
+                elif unit == "ns" or (unit == "auto" and match.group(2) == "ns"):
+                    times.append(float(match.group(1))/1000000000.0)
+                else:
+                    times.append(float(match.group(1)))
             else:
                 print(f"Warning: No match found for output: {output}")
         except Exception as e:
@@ -177,65 +202,112 @@ def run_benchmark(directory, command, regex, unit, profiler=False):
             os.chdir(current_dir)
     return times
 
-# Collect execution times and compute averages
-results = []
-for benchmark in benchmarks:
-    name = benchmark["name"]
-    directory = benchmark["directory"]
-    regex = benchmark["regex"]
-    unit = benchmark["unit"]
+def benchmark_runtime_overhead():
+    # Collect execution times and compute averages
+    results = []
+    for benchmark in benchmarks:
+        name = benchmark["name"]
+        directory = benchmark["directory"]
+        regex = benchmark["regex"]
+        unit = benchmark["unit"]
 
-    small_times = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler=False)
-    medium_times = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler=False)
-    large_times = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler=False)
-
-    small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler=True)
-    medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler=True)
-    large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler=True)
-
-    results.append({
-        "Program Name": name,
-        "Small (np)": mean(small_times) if small_times else float('nan'),
-        "Small (p)": mean(small_times_prof) if small_times_prof else float('nan'),
-        "Medium (np)": mean(medium_times) if medium_times else float('nan'),
-        "Medium (p)": mean(medium_times_prof) if medium_times_prof else float('nan'),
-        "Large (np)": mean(large_times) if large_times else float('nan'),
-        "Large (p)": mean(large_times_prof) if large_times_prof else float('nan'),
-    })
-
-# Print results in a table
-table_headers = [
-    "Program Name",
-    "Small (np)", "Small (p)",
-    "Medium (np)", "Medium (p)",
-    "Large (np)", "Large (p)"
-]
-
-table_rows = [
-    [
-        result["Program Name"],
-        result["Small (np)"], result["Small (p)"],
-        result["Medium (np)"], result["Medium (p)"],
-        result["Large (np)"], result["Large (p)"],
-    ]
-    for result in results
-]
-
-# print(tabulate(table_rows, headers=table_headers, tablefmt="grid"))
-# Print results in a table format
-header = (
-    f"{'Program Name':<15} {'Small (np)':<15} {'Small (p)':<15} "
-    f"{'Medium (np)':<15} {'Medium (p)':<15} "
-    f"{'Large (np)':<15} {'Large (p)':<15}"
-)
-separator = "-" * len(header)
-print(header)
-print(separator)
-
-for result in results:
-    row = (
-        f"{result['Program Name']:<15} {result['Small (np)']:<15.6f} {result['Small (p)']:<15.6f} "
-        f"{result['Medium (np)']:<15.6f} {result['Medium (p)']:<15.6f} "
-        f"{result['Large (np)']:<15.6f} {result['Large (p)']:<15.6f}"
+        small_times = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler=False)
+        medium_times = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler=False)
+        large_times = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler=False)
+    
+        small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler=True)
+        medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler=True)
+        large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler=True)
+    
+        results.append({
+            "Program Name": name,
+            "Small (np)": mean(small_times) if small_times else float('nan'),
+            "Small (p)": mean(small_times_prof) if small_times_prof else float('nan'),
+            "Medium (np)": mean(medium_times) if medium_times else float('nan'),
+            "Medium (p)": mean(medium_times_prof) if medium_times_prof else float('nan'),
+            "Large (np)": mean(large_times) if large_times else float('nan'),
+            "Large (p)": mean(large_times_prof) if large_times_prof else float('nan'),
+        })
+    
+    # Print results in a table format
+    header = (
+        f"{'Program Name':<15} {'Small (np)':<15} {'Small (p)':<15} "
+        f"{'Medium (np)':<15} {'Medium (p)':<15} "
+        f"{'Large (np)':<15} {'Large (p)':<15}"
     )
-    print(row)
+    separator = "-" * len(header)
+    print(header)
+    print(separator)
+    
+    for result in results:
+        row = (
+            f"{result['Program Name']:<15} {result['Small (np)']:<15.6f} {result['Small (p)']:<15.6f} "
+            f"{result['Medium (np)']:<15.6f} {result['Medium (p)']:<15.6f} "
+            f"{result['Large (np)']:<15.6f} {result['Large (p)']:<15.6f}"
+        )
+        print(row)
+
+
+def benchmark_hash_overhead():
+    # Collect execution times and compute averages
+    results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
+    for hash_fn in hashes:
+        current_dir = os.getcwd()
+        os.chdir(build_dir)
+        cmake_command = ["cmake", "..", 
+                         "-DCMAKE_BUILD_TYPE=\'Release\'", 
+                         "-DENABLE_COLLISION_CHECKING=OFF", 
+                         "-DMEASURE_HASHING_OVERHEAD=ON", 
+                         f"-DHASH_FUNCTION=\'{hash_fn}\'"
+                         ]
+        make_command = ["make", "-j"]
+
+        try:
+            subprocess.run(cmake_command, check=True)
+            subprocess.run(make_command, check=True)
+            print("CMake command executed successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error building: {e}")
+            os.chdir(current_dir)
+            continue
+
+        os.chdir(current_dir)
+
+        for benchmark in benchmarks:
+            name = benchmark["name"]
+            if "(fix)" in name:
+                continue
+            directory = benchmark["directory"]
+            regex = r"avg hash rate\s*([\d.]+)(GB/s)"
+            unit = "GB/s"
+    
+            small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler=True)
+            medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler=True)
+            large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler=True)
+        
+            results["small"][hash_fn][name] = mean(small_times_prof) if small_times_prof else float('nan')
+            results["medium"][hash_fn][name] = mean(medium_times_prof) if medium_times_prof else float('nan')
+            results["large"][hash_fn][name] = mean(large_times_prof) if large_times_prof else float('nan')
+    
+    for size in ["small", "medium", "large"]:
+        print(f"RESULTS ({size})")
+        # Print results in a table format
+        header = f"{'Program Name':<15} "
+        for hash_fn in hashes:
+            header += f"{hash_fn:<20} "
+        separator = "-" * len(header)
+        print(header)
+        print(separator)
+        
+        for benchmark in benchmarks:
+            name = benchmark["name"]
+            if "(fix)" in name:
+                continue
+            row = f"{name:<15} "
+            for hash_fn in hashes:
+                row += f"{results[size][hash_fn][name]:<20.3f} "
+            print(row)
+        print()
+    
+#benchmark_runtime_overhead()
+benchmark_hash_overhead()
