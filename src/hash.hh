@@ -112,7 +112,13 @@ public:
   #else
     #define HASH_T uint64_t
   #endif
-  #define HASH_FN(key, len) HASH_FUNCTION(key, len)
+
+  #if defined(HASH_FUNCTION_XXH32) || \
+      defined(HASH_FUNCTION_XXH64)
+    #define HASH_FN(key, len) HASH_FUNCTION(key, len, 0)
+  #else
+    #define HASH_FN(key, len) HASH_FUNCTION(key, len)
+  #endif
 
 #else
   #error "invalid hash function"
