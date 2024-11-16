@@ -38,8 +38,8 @@ std::string format_float(float value, int width, float precision,
   std::ostringstream oss;
   value = round_to(value, precision);
   int decimals = 0;
-  while (precision < 1.f) {
-    precision *= 10;
+  while (precision < 0.5f) {
+    precision *= 10.f;
     decimals += 1;
   }
   const int label_width = label.length();
@@ -1010,14 +1010,16 @@ void print_hash_overhead_summary(
   }
 
   const uint64_t time_per_hash = overhead.count() / count;
-  const float gb = bytes / ((float)(2 << 30));
-  const float gb_per_s = gb / (overhead.count() / 1'000'000'000.f);
+  // B / ns = GB / s
+  const float gb_per_s = bytes / ((float)overhead.count());
   // clang-format off
-  std::cerr << "\n  hash overhead "
+  std::cerr << "\n  bytes hashed   "
+            << format_uint(bytes, f_w) << "\n";
+  std::cerr <<   "  hash overhead  "
             << format_duration(overhead.count(), f_w) << "\n";
-  std::cerr <<   "  avg time/hash "
+  std::cerr <<   "  avg time/hash  "
             << format_duration(time_per_hash, f_w) << "\n";
-  std::cerr <<   "  avg hash rate "
+  std::cerr <<   "  avg hash rate  "
             << format_float(gb_per_s, f_w, 0.001, "GB/s") << "\n";
   // clang-format on
   return;
