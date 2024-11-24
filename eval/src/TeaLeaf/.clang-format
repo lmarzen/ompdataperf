@@ -1,0 +1,11 @@
+﻿---
+AllowShortIfStatementsOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+AlignEscapedNewlines: Left
+IndentCaseLabels: true
+ColumnLimit: 140
+CompactNamespaces: true
+FixNamespaceComments: true
+IndentPPDirectives: BeforeHash
+...
