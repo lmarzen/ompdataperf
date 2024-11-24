@@ -45,7 +45,7 @@ else()
 endif()
 
 # Set a default hash function if none is provided
-set(HASH_FUNCTION "rapidhash" CACHE STRING "Hash function to use")
+set(HASH_FUNCTION "t1ha0_ia32aes_avx2" CACHE STRING "Hash function to use")
 add_compile_definitions(HASH_FUNCTION_${HASH_FUNCTION})
 add_compile_definitions(HASH_FUNCTION=${HASH_FUNCTION})
 if(HASH_FUNCTION STREQUAL "CityHash32" OR
