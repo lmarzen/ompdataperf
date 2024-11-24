@@ -962,21 +962,22 @@ void print_collision_summary(
 
   // count collisions
   uint64_t num_collisions = 0;
+  uint64_t num_unique_keys = 0;
   for (const auto &hash_set : *collision_map_ptr) {
     assert(!hash_set.second.empty());
     num_collisions += hash_set.second.size() - 1;
+    num_unique_keys += hash_set.second.size();
   }
 
-  const uint64_t num_unique_hashes = collision_map_ptr->size();
   float percent_collisions = 0.f;
-  if (num_unique_hashes > 0) {
-    percent_collisions = num_collisions / (float)num_unique_hashes;
+  if (num_unique_keys > 0) {
+    percent_collisions = (num_collisions / (float)num_unique_keys) * 100.f;
   }
   std::ostringstream percent_collisions_oss;
-  percent_collisions_oss << std::setprecision(2)
+  percent_collisions_oss << std::fixed << std::showpoint << std::setprecision(2)
                          << round_to(percent_collisions, 0.01) << "%";
-  std::cerr << "\nFound " << std::dec << num_collisions << " collisions out of "
-            << num_unique_hashes << " total hashes for a collisions rate of "
+  std::cerr << "\nFound " << std::dec << num_collisions << " collisions for "
+            << num_unique_keys << " unique keys for a collision rate of "
             << percent_collisions_oss.str() << ".\n";
   return;
 }

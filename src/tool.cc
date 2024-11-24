@@ -84,8 +84,7 @@ void try_collision_map_insert(
   std::set<data_info_t> &set = (*collision_map_ptr)[hash];
   const auto &hint = set.upper_bound(key);
   if (!set.empty()) {
-    const auto &it = std::prev(hint);
-    if (it != set.begin() && *it == key) {
+    if (hint != set.begin() && *std::prev(hint) == key) {
       // data is already present
       return;
     }

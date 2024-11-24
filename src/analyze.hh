@@ -139,7 +139,7 @@ typedef struct data_info {
   void *data;
   size_t bytes;
 
-  bool operator<=>(const struct data_info &other) const {
+  int cmp(const struct data_info &other) const {
     assert(data != nullptr && other.data != nullptr);
     if (bytes != other.bytes) {
       return bytes - other.bytes;
@@ -147,8 +147,22 @@ typedef struct data_info {
     return memcmp(data, other.data, bytes);
   }
   bool operator==(const struct data_info &other) const {
-    assert(data != nullptr && other.data != nullptr);
-    return bytes == other.bytes && memcmp(data, other.data, bytes) == 0;
+    return (cmp(other) == 0);
+  }
+  bool operator!=(const struct data_info &other) const {
+    return (cmp(other) != 0);
+  }
+  bool operator<(const struct data_info &other) const {
+    return (cmp(other) < 0);
+  }
+  bool operator>(const struct data_info &other) const {
+    return (cmp(other) > 0);
+  }
+  bool operator<=(const struct data_info &other) const {
+    return (cmp(other) <= 0);
+  }
+  bool operator>=(const struct data_info &other) const {
+    return (cmp(other) >= 0);
   }
 } data_info_t;
 
