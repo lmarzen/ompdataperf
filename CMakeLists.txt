@@ -44,6 +44,14 @@ else()
   message(STATUS "Not measuring hashing overhead")
 endif()
 
+option(PRINT_TRANSFER_RATE "Calculates and prints average data transfer rate in summary." OFF)
+if(PRINT_TRANSFER_RATE)
+  message(STATUS "Printing effective data transfer rate")
+  add_compile_definitions(PRINT_TRANSFER_RATE)
+else()
+  message(STATUS "Not printing effective data transfer rate")
+endif()
+
 # Set a default hash function if none is provided
 set(HASH_FUNCTION "t1ha0_ia32aes_avx2" CACHE STRING "Hash function to use")
 add_compile_definitions(HASH_FUNCTION_${HASH_FUNCTION})

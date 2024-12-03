@@ -1032,3 +1032,41 @@ void print_hash_overhead_summary(
   return;
 }
 #endif // MEASURE_HASHING_OVERHEAD
+
+#ifdef PRINT_TRANSFER_RATE
+void print_transfer_rate_summary(
+    const std::vector<data_op_info_t> *data_op_log_ptr) {
+  uint64_t count = 0;
+  uint64_t bytes = 0;
+  duration<uint64_t, std::nano> overhead(0);
+  for (const data_op_info_t &entry : *data_op_log_ptr) {
+    if (!is_transfer_op(entry.optype)) {
+      continue;
+    }
+    count += 1;
+    bytes += entry.bytes;
+    overhead += entry.end_time - entry.start_time;
+  }
+
+  uint64_t time_per_transfer = 0;
+  if (count > 0) {
+    time_per_transfer = overhead.count() / count;
+  }
+  // B / ns = GB / s
+  float gb_per_s = 0;
+  if (time_per_transfer.count() > 0) {
+    gb_per_s = bytes / ((float)overhead.count());
+  }
+  // clang-format off
+  std::cerr << "\n  bytes transferred   "
+            << format_uint(bytes, f_w) << "\n";
+  std::cerr <<   "  transfer overhead  "
+            << format_duration(overhead.count(), f_w) << "\n";
+  std::cerr <<   "  avg time/transfer  "
+            << format_duration(time_per_transfer, f_w) << "\n";
+  std::cerr <<   "  avg transfer rate  "
+            << format_float(gb_per_s, f_w, 0.001, "GB/s") << "\n";
+  // clang-format on
+  return;
+}
+#endif // PRINT_TRANSFER_RATE

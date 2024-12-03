@@ -299,6 +299,9 @@ void ompt_finalize(ompt_data_t *data) {
 #ifdef MEASURE_HASHING_OVERHEAD
   print_hash_overhead_summary(s_data_op_log_ptr, s_hash_overhead);
 #endif
+#ifdef PRINT_TRANSFER_RATE
+  print_transfer_rate_summary(s_data_op_log_ptr);
+#endif
   const steady_clock::time_point analysis_end = steady_clock::now();
   const duration<uint64_t, std::nano> analysis_time =
       analysis_end - analysis_start;
