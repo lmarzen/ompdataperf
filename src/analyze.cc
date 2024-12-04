@@ -1054,7 +1054,7 @@ void print_transfer_rate_summary(
   }
   // B / ns = GB / s
   float gb_per_s = 0;
-  if (time_per_transfer.count() > 0) {
+  if (overhead.count() > 0) {
     gb_per_s = bytes / ((float)overhead.count());
   }
   // clang-format off
