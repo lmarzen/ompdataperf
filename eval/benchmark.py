@@ -2,39 +2,19 @@ import subprocess
 import re
 import os
 from statistics import mean
+from statistics import stdev
+from statistics import NormalDist
 from collections import defaultdict
 import sys
 import time
+import math
+
 
 eval_dir = os.getcwd()
 build_dir = f"{eval_dir}/../build"
 profiler_command = f"{build_dir}/ompdataprof"
 comparison_prof_command = "nsys profile"
 
-benchmarks2 = [
-    {
-        "name": "bfs",
-        "directory": f"{eval_dir}/src/bfs",
-        "commands": [
-            "./bfs_offload 4 ../../data/bfs/graph4096.txt",
-            "./bfs_offload 4 ../../data/bfs/graph65536.txt",
-            "./bfs_offload 4 ../../data/bfs/graph1MW_6.txt",
-        ],
-        "regex": r"Compute time:\s*([\d.]+)",
-        "unit": "s",
-    },
-    {
-        "name": "bfs (fix)",
-        "directory": f"{eval_dir}/src/bfs",
-        "commands": [
-            "./bfs_offload_fix 4 ../../data/bfs/graph4096.txt",
-            "./bfs_offload_fix 4 ../../data/bfs/graph65536.txt",
-            "./bfs_offload_fix 4 ../../data/bfs/graph1MW_6.txt",
-        ],
-        "regex": r"Compute time:\s*([\d.]+)",
-        "unit": "s",
-    },
-]
 benchmarks = [
     {
         "name": "babelstream",
@@ -92,17 +72,6 @@ benchmarks = [
         "unit": "ms",
     },
     {
-        "name": "nw",
-        "directory": f"{eval_dir}/src/nw",
-        "commands": [
-            "./needle_offload 512 10 2",
-            "./needle_offload 2048 10 2",
-            "./needle_offload 8192 10 2",
-        ],
-        "regex": r"Total time:\s*([\d.]+)",
-        "unit": "s",
-    },
-    {
         "name": "minife",
         "directory": f"{eval_dir}/src/miniFE/src-openmp45-opt",
         "commands": [
@@ -133,6 +102,17 @@ benchmarks = [
             "./fmm.omptarget -n 10000",
         ],
         "regex": r"Total Time \(s\)\s*([\d.]+)",
+        "unit": "s",
+    },
+    {
+        "name": "nw",
+        "directory": f"{eval_dir}/src/nw",
+        "commands": [
+            "./needle_offload 512 10 2",
+            "./needle_offload 2048 10 2",
+            "./needle_offload 8192 10 2",
+        ],
+        "regex": r"Total time:\s*([\d.]+)",
         "unit": "s",
     },
     {
@@ -225,9 +205,48 @@ torture_benchmarks = [
             "./torture 127 33554432",
             "./torture 127 67108864",
             "./torture 127 134217728",
-            #"./torture 127 268435456",
-            #"./torture 127 536870912",
-            #"./torture 127 1073741824",
+            "./torture 127 268435456",
+            "./torture 127 536870912",
+            "./torture 127 1073741824",
+        ],
+        "regex": r"Elapsed time:\s*([\d.]+) seconds",
+        "unit": "s",
+    },
+    {
+        "name": "torture (fix)",
+        "directory": f"{eval_dir}/src/torture",
+        "commands": [
+            "./torture_fix 127 1",
+            "./torture_fix 127 2",
+            "./torture_fix 127 4",
+            "./torture_fix 127 8",
+            "./torture_fix 127 16",
+            "./torture_fix 127 32",
+            "./torture_fix 127 64",
+            "./torture_fix 127 128",
+            "./torture_fix 127 256",
+            "./torture_fix 127 512",
+            "./torture_fix 127 1024",
+            "./torture_fix 127 2048",
+            "./torture_fix 127 4096",
+            "./torture_fix 127 8192",
+            "./torture_fix 127 16384",
+            "./torture_fix 127 32768",
+            "./torture_fix 127 65536",
+            "./torture_fix 127 131072",
+            "./torture_fix 127 262144",
+            "./torture_fix 127 524288",
+            "./torture_fix 127 1048576",
+            "./torture_fix 127 2097152",
+            "./torture_fix 127 4194304",
+            "./torture_fix 127 8388608",
+            "./torture_fix 127 16777216",
+            "./torture_fix 127 33554432",
+            "./torture_fix 127 67108864",
+            "./torture_fix 127 134217728",
+            "./torture_fix 127 268435456",
+            "./torture_fix 127 536870912",
+            "./torture_fix 127 1073741824",
         ],
         "regex": r"Elapsed time:\s*([\d.]+) seconds",
         "unit": "s",
@@ -242,10 +261,12 @@ hashes = ["CityHash32", "CityHash64", "CityHash128", "CityHashCrc128",
           "XXH32", "XXH64", "XXH3_64bits", "XXH3_128bits",
 ]
 
-def run_benchmark(directory, command, regexes, unit, profiler_cmd, warmup_cnt, run_cnt):
+def run_benchmark(directory, command, regexes, unit, profiler_cmd, warmup_cnt, run_cnt, confidence):
     """Run the benchmark command in a specific directory and extract execution times."""
     times = [[] for _ in range(len(regexes))]
     full_command = f"{profiler_cmd} {command}".strip()
+
+    z_score = NormalDist().inv_cdf((1 + confidence) / 2.)
 
     for i in range(run_cnt + warmup_cnt):
         sys.stdout.flush()
@@ -273,33 +294,50 @@ def run_benchmark(directory, command, regexes, unit, profiler_cmd, warmup_cnt, r
             if (i < warmup_cnt):
                 continue
 
-            for i, regex in enumerate(regexes):
-                if (regex == r""):
-                    times[i].append(float(execution_time))
-                    continue
 
-                #print(f"output: {output}")
-                # Extract the execution time using the regex, last match
-                matches = list(re.finditer(regex, output))
-                match = matches[-1] if matches else None
-                #match = re.search(regex, output)
-                #print(match.group(0))
-                #print(match.group(1))
-                #if (unit == "auto"):
-                #    print(match.group(2))
-                if match:
-                    if unit == "s" or (unit == "auto" and match.group(2) == "s"):
-                        times[i].append(float(match.group(1)))
-                    elif unit == "ms" or (unit == "auto" and match.group(2) == "ms"):
-                        times[i].append(float(match.group(1))/1000.0)
-                    elif unit == "µs" or (unit == "auto" and match.group(2) == "µs"):
-                        times[i].append(float(match.group(1))/1000000.0)
-                    elif unit == "ns" or (unit == "auto" and match.group(2) == "ns"):
-                        times[i].append(float(match.group(1))/1000000000.0)
-                    else:
-                        times[i].append(float(match.group(1)))
+            conf_reached = 0
+
+            for j, regex in enumerate(regexes):
+                if (regex == r""):
+                    times[j].append(float(execution_time))
                 else:
-                    print(f"Warning: No match found for output: {output}")
+                    #print(f"output: {output}")
+                    # Extract the execution time using the regex, last match
+                    matches = list(re.finditer(regex, output))
+                    match = matches[-1] if matches else None
+                    #match = re.search(regex, output)
+                    #print(match.group(0))
+                    #print(match.group(1))
+                    #if (unit == "auto"):
+                    #    print(match.group(2))
+                    if match:
+                        if unit == "s" or (unit == "auto" and match.group(2) == "s"):
+                            times[j].append(float(match.group(1)))
+                        elif unit == "ms" or (unit == "auto" and match.group(2) == "ms"):
+                            times[j].append(float(match.group(1))/1000.0)
+                        elif unit == "µs" or (unit == "auto" and match.group(2) == "µs"):
+                            times[j].append(float(match.group(1))/1000000.0)
+                        elif unit == "ns" or (unit == "auto" and match.group(2) == "ns"):
+                            times[j].append(float(match.group(1))/1000000000.0)
+                        else:
+                            times[j].append(float(match.group(1)))
+                    else:
+                        print(f"Warning: No match found for output: {output}")
+
+
+                if j == 0 and confidence > 0.0 and i - warmup_cnt >= 30:
+                    # try at least 30 runs before applying this stuff
+                    mean_time = mean(times[j])
+                    std_dev = stdev(times[j])
+                    standard_error = std_dev / math.sqrt(i - warmup_cnt)
+                    margin_of_error = z_score * standard_error
+                    tolerance = mean_time * 0.01
+                    if margin_of_error < confidence:
+                        print(f"Mean execution time: {mean_time:.6f} seconds")
+                        print(f"95% Confidence Interval: [{mean_time - margin_of_error:.6f}, {mean_time + margin_of_error:.6f}]")
+                        conf_reached = conf_reached + 1
+            if conf_reached == len(regexes):
+                break
         except Exception as e:
             print(f"Error running command '{full_command}' in '{directory}': {e}")
             print(f"output: {output}")
@@ -311,14 +349,16 @@ def run_benchmark(directory, command, regexes, unit, profiler_cmd, warmup_cnt, r
 def build(CMAKE_BUILD_TYPE='Release',
           ENABLE_COLLISION_CHECKING='OFF',
           MEASURE_HASHING_OVERHEAD='OFF',
-          HASH_FUNCTION='t1ha0_ia32aes_avx2'):
+          HASH_FUNCTION='t1ha0_ia32aes_avx2',
+          PRINT_TRANSFER_RATE='OFF'):
     current_dir = os.getcwd()
     os.chdir(build_dir)
     cmake_command = ["cmake", "..", 
                      f"-DCMAKE_BUILD_TYPE=\'{CMAKE_BUILD_TYPE}\'", 
                      f"-DENABLE_COLLISION_CHECKING={ENABLE_COLLISION_CHECKING}", 
                      f"-DMEASURE_HASHING_OVERHEAD={MEASURE_HASHING_OVERHEAD}", 
-                     f"-DHASH_FUNCTION=\'{HASH_FUNCTION}\'"
+                     f"-DHASH_FUNCTION=\'{HASH_FUNCTION}\'",
+                     f"-DPRINT_TRANSFER_RATE={PRINT_TRANSFER_RATE}", 
                      ]
     make_command = ["make", "-j"]
 
@@ -335,8 +375,9 @@ def build(CMAKE_BUILD_TYPE='Release',
     return True
  
 def benchmark_runtime_overhead():
-    warmup_runs = 3
-    repetitions = 30
+    warmup_runs = 10
+    repetitions = 60
+    confidence = 0.00
     success = build()
     if (not success):
         return
@@ -348,17 +389,17 @@ def benchmark_runtime_overhead():
         regex = [benchmark["regex"]]
         unit = benchmark["unit"]
 
-        small_times = run_benchmark(directory, benchmark["commands"][0], regex, unit, "", warmup_runs, repetitions)
-        medium_times = run_benchmark(directory, benchmark["commands"][1], regex, unit, "", warmup_runs, repetitions)
-        large_times = run_benchmark(directory, benchmark["commands"][2], regex, unit, "", warmup_runs, repetitions)
+        small_times = run_benchmark(directory, benchmark["commands"][0], regex, unit, "", warmup_runs, repetitions, confidence)
+        medium_times = run_benchmark(directory, benchmark["commands"][1], regex, unit, "", warmup_runs, repetitions, confidence)
+        large_times = run_benchmark(directory, benchmark["commands"][2], regex, unit, "", warmup_runs, repetitions, confidence)
     
-        small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler_command, warmup_runs, repetitions)
-        medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler_command, warmup_runs, repetitions)
-        large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler_command, warmup_runs, repetitions)
+        small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+        medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+        large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
     
-        #small_times_cprof = run_benchmark(directory, benchmark["commands"][0], regex, unit, comparison_prof_command, warmup_runs, repetitions)
-        #medium_times_cprof = run_benchmark(directory, benchmark["commands"][1], regex, unit, comparison_prof_command, warmup_runs, repetitions)
-        #large_times_cprof = run_benchmark(directory, benchmark["commands"][2], regex, unit, comparison_prof_command, warmup_runs, repetitions)
+        #small_times_cprof = run_benchmark(directory, benchmark["commands"][0], regex, unit, comparison_prof_command, warmup_runs, repetitions, confidence)
+        #medium_times_cprof = run_benchmark(directory, benchmark["commands"][1], regex, unit, comparison_prof_command, warmup_runs, repetitions, confidence)
+        #large_times_cprof = run_benchmark(directory, benchmark["commands"][2], regex, unit, comparison_prof_command, warmup_runs, repetitions, confidence)
 
         results.append({
             "Program Name": name,
@@ -400,10 +441,59 @@ def benchmark_runtime_overhead():
         print(row)
 
 
+def benchmark_runtime_overhead_torture():
+    warmup_runs = 10
+    repetitions = 30
+    confidence = 0.00
+    success = build()
+    if (not success):
+        return
+    # Collect execution times and compute averages
+    results_prof = defaultdict(lambda: defaultdict(lambda: None))
+    results_noprof = defaultdict(lambda: defaultdict(lambda: None))
+    for benchmark in torture_benchmarks:
+        name = benchmark["name"]
+        #if "(fix)" in name:
+        #    continue
+        directory = benchmark["directory"]
+        regex = [benchmark["regex"]]
+        unit = benchmark["unit"]
+    
+        for command in benchmark["commands"]: 
+            numbers = re.findall(r'\d+', command)
+            size = numbers[-1] if numbers else 0
+            times_prof = run_benchmark(directory, command, regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+            times_noprof = run_benchmark(directory, command, regex, unit, "", warmup_runs, repetitions, confidence)
+            results_noprof[size][name] = mean(times_noprof[0])
+            results_prof[size][name] = mean(times_prof[0])
+            print(f"  result np ({size})  : {results_noprof[size][name]:<20.6f}")
+            print(f"  result p ({size})  : {results_prof[size][name]:<20.6f}")
+    
+    for benchmark in torture_benchmarks:
+        name = benchmark["name"]
+        #if "(fix)" in name:
+        #    continue
+        print(f"RESULTS - Execution Time - ({name}) - (s)")
+        # Print results in a table format
+        header = f"{'Input Size':<15}\t{'No Prof':<15}\t{'Prof':<15}"
+        separator = "-" * len(header)
+        print(header)
+        #print(separator)
+        
+        for command in benchmark["commands"]:
+            numbers = re.findall(r'\d+', command)
+            size = numbers[-1] if numbers else 0
+            row = f"{size:<15}\t"
+            row += f"{results_noprof[size][name]:<15.6f}\t{results_prof[size][name]:<15.6f}"
+            print(row)
+        print()
+
+
 def benchmark_hash_overhead():
     # this takes a long time. 19 hash functions * 8 benchmarks * 3 problem sizes * 11 runs
     warmup_runs = 3
     repetitions = 30
+    confidence = 0.95
     # Collect execution times and compute averages
     results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
     for hash_fn in hashes:
@@ -420,9 +510,9 @@ def benchmark_hash_overhead():
             regex = [r"avg hash rate\s*([\d.]+)(GB/s)"]
             unit = "GB/s"
     
-            small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler_command, warmup_runs, repetitions)
-            medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler_command, warmup_runs, repetitions)
-            large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler_command, warmup_runs, repetitions)
+            small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+            medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+            large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
         
             results["small"][hash_fn][name] = mean(small_times_prof[0])
             results["medium"][hash_fn][name] = mean(medium_times_prof[0])
@@ -454,9 +544,9 @@ def benchmark_hash_overhead():
 
 
 def benchmark_hash_overhead_torture():
-    # this takes a long time. 19 hash functions * 8 benchmarks * 3 problem sizes * 11 runs
-    warmup_runs = 0
-    repetitions = 1
+    warmup_runs = 1
+    repetitions = 3
+    confidence = 0.95
 
     # Collect execution times and compute averages
     results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
@@ -477,7 +567,7 @@ def benchmark_hash_overhead_torture():
             for command in benchmark["commands"]: 
                 numbers = re.findall(r'\d+', command)
                 size = numbers[-1] if numbers else 0
-                times_prof = run_benchmark(directory, command, regex, unit, profiler_command, warmup_runs, repetitions)
+                times_prof = run_benchmark(directory, command, regex, unit, profiler_command, warmup_runs, repetitions, confidence)
                 results[size][hash_fn][name] = mean(times_prof[0])
                 print(f"  result ({size})  : {results[size][hash_fn][name]:<20.3f}")
     
@@ -506,6 +596,7 @@ def benchmark_hash_overhead_torture():
 def benchmark_hash_collisions():
     warmup_runs = 0
     repetitions = 1
+    confidence = 0.00
     # Collect execution times and compute averages
     results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
     for hash_fn in hashes:
@@ -523,9 +614,9 @@ def benchmark_hash_collisions():
             regex = [r"Found\s+([\d.]+) collisions"]
             unit = ""
     
-            small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler_command, warmup_runs, repetitions)
-            medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler_command, warmup_runs, repetitions)
-            large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler_command, warmup_runs, repetitions)
+            small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+            medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+            large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
         
             results["small"][hash_fn][name] = mean(small_times_prof[0])
             results["medium"][hash_fn][name] = mean(medium_times_prof[0])
@@ -558,6 +649,7 @@ def benchmark_hash_collisions():
 def benchmark_prediction_accuracy():
     warmup_runs = 3
     repetitions = 30
+    confidence = 0.95
     success = build()
     if (not success):
         return
@@ -573,17 +665,17 @@ def benchmark_prediction_accuracy():
         fix_directory = benchmarks[i-1]["directory"]
 
 
-        small_times = run_benchmark(directory, benchmarks[i-1]["commands"][0], [""], "s", "", warmup_runs, repetitions)
-        medium_times = run_benchmark(directory, benchmarks[i-1]["commands"][1], [""], "s", "", warmup_runs, repetitions)
-        large_times = run_benchmark(directory, benchmarks[i-1]["commands"][2], [""], "s", "", warmup_runs, repetitions)
+        small_times = run_benchmark(directory, benchmarks[i-1]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
+        medium_times = run_benchmark(directory, benchmarks[i-1]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
+        large_times = run_benchmark(directory, benchmarks[i-1]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
 
-        small_times_fix = run_benchmark(fix_directory, benchmarks[i]["commands"][0], [""], "s", "", warmup_runs, repetitions)
-        medium_times_fix = run_benchmark(fix_directory, benchmarks[i]["commands"][1], [""], "s", "", warmup_runs, repetitions)
-        large_times_fix = run_benchmark(fix_directory, benchmarks[i]["commands"][2], [""], "s", "", warmup_runs, repetitions)
+        small_times_fix = run_benchmark(fix_directory, benchmarks[i]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
+        medium_times_fix = run_benchmark(fix_directory, benchmarks[i]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
+        large_times_fix = run_benchmark(fix_directory, benchmarks[i]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
     
-        small_times_prof = run_benchmark(directory, benchmarks[i-1]["commands"][0], regex, "auto", profiler_command, warmup_runs, repetitions)
-        medium_times_prof = run_benchmark(directory, benchmarks[i-1]["commands"][1], regex, "auto", profiler_command, warmup_runs, repetitions)
-        large_times_prof = run_benchmark(directory, benchmarks[i-1]["commands"][2], regex, "auto", profiler_command, warmup_runs, repetitions)
+        small_times_prof = run_benchmark(directory, benchmarks[i-1]["commands"][0], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        medium_times_prof = run_benchmark(directory, benchmarks[i-1]["commands"][1], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        large_times_prof = run_benchmark(directory, benchmarks[i-1]["commands"][2], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
     
         small_actual = mean(small_times_fix[0])
         medium_actual = mean(medium_times_fix[0])
@@ -624,6 +716,7 @@ def benchmark_prediction_accuracy():
 def benchmark_identify_issues():
     warmup_runs = 0
     repetitions = 1
+    confidence = 0.00
     success = build()
     if (not success):
         return
@@ -637,9 +730,9 @@ def benchmark_identify_issues():
         # assume non-fix version directly preceeds fix version
         directory = benchmark["directory"]
 
-        small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, "", profiler_command, warmup_runs, repetitions)
-        medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, "", profiler_command, warmup_runs, repetitions)
-        large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, "", profiler_command, warmup_runs, repetitions)
+        small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, "", profiler_command, warmup_runs, repetitions, confidence)
+        medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, "", profiler_command, warmup_runs, repetitions, confidence)
+        large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, "", profiler_command, warmup_runs, repetitions, confidence)
     
         results.append({
             "Program Name": name,
@@ -687,10 +780,122 @@ def benchmark_identify_issues():
         )
         print(row)
 
+def benchmark_transfer_rate_torture():
+    warmup_runs = 3
+    repetitions = 10
+    confidence = 0.00
+
+    # Collect execution times and compute averages
+    results = defaultdict(lambda: defaultdict(lambda: None))
+    success = build(PRINT_TRANSFER_RATE='ON')
+    for benchmark in torture_benchmarks:
+        name = benchmark["name"]
+        if "(fix)" in name:
+            continue
+        directory = benchmark["directory"]
+        regex = [r"avg transfer rate\s*([\d.]+)(GB/s)"]
+        unit = "GB/s"
+    
+        for command in benchmark["commands"]: 
+            numbers = re.findall(r'\d+', command)
+            size = numbers[-1] if numbers else 0
+            times_prof = run_benchmark(directory, command, regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+            results[size][name] = mean(times_prof[0])
+            print(f"  result ({size})  : {results[size][name]:<20.3f}")
+    
+    for benchmark in torture_benchmarks:
+        name = benchmark["name"]
+        if "(fix)" in name:
+            continue
+        print(f"RESULTS - Transfer Overhead - ({name}) - GB/s")
+        # Print results in a table format
+        header = f"{'Input Size':<15}\t"
+        header += f"{'Transfer Rate':<20}\t"
+        separator = "-" * len(header)
+        print(header)
+        #print(separator)
+        
+        for command in benchmark["commands"]:
+            numbers = re.findall(r'\d+', command)
+            size = numbers[-1] if numbers else 0
+            row = f"{size:<15}\t"
+            row += f"{results[size][name]:<20.3f}\t"
+            print(row)
+        print()
+
+
+def benchmark_runtime_overhead_full():
+    warmup_runs = 10
+    repetitions = 30
+    confidence = 0.00
+    success = build()
+    if (not success):
+        return
+    # Collect execution times and compute averages
+    results = []
+    for benchmark in benchmarks:
+        name = benchmark["name"]
+        directory = benchmark["directory"]
+        regex = [""]
+        unit = "s"
+
+        small_times = run_benchmark(directory, benchmark["commands"][0], regex, unit, "", warmup_runs, repetitions, confidence)
+        medium_times = run_benchmark(directory, benchmark["commands"][1], regex, unit, "", warmup_runs, repetitions, confidence)
+        large_times = run_benchmark(directory, benchmark["commands"][2], regex, unit, "", warmup_runs, repetitions, confidence)
+    
+        small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+        medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+        large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+    
+        #small_times_cprof = run_benchmark(directory, benchmark["commands"][0], regex, unit, comparison_prof_command, warmup_runs, repetitions, confidence)
+        #medium_times_cprof = run_benchmark(directory, benchmark["commands"][1], regex, unit, comparison_prof_command, warmup_runs, repetitions, confidence)
+        #large_times_cprof = run_benchmark(directory, benchmark["commands"][2], regex, unit, comparison_prof_command, warmup_runs, repetitions, confidence)
+
+        results.append({
+            "Program Name": name,
+            "Small (np)": mean(small_times[0]),
+            "Small (p)": mean(small_times_prof[0]),
+            #"Small (nvp)": mean(small_times_cprof[0]),
+            "Medium (np)": mean(medium_times[0]),
+            "Medium (p)": mean(medium_times_prof[0]),
+            #"Medium (nvp)": mean(medium_times_cprof[0]),
+            "Large (np)": mean(large_times[0]),
+            "Large (p)": mean(large_times_prof[0]),
+            #"Large (nvp)": mean(large_times_cprof[0]),
+        })
+    
+    # Print results in a table format
+    print(f"RESULTS - Execution Time - (s)")
+    header = (
+        f"{'Program Name':<15}\t{'Small (np)':<15}\t{'Small (p)':<15}\t"
+        f"{'Medium (np)':<15}\t{'Medium (p)':<15}\t"
+        f"{'Large (np)':<15}\t{'Large (p)':<15}"
+        #f"{'Program Name':<15}\t{'Small (np)':<15}\t{'Small (p)':<15}\t{'Small (nvp)':<15}\t"
+        #f"{'Medium (np)':<15}\t{'Medium (p)':<15}\t{'Medium (nvp)':<15}\t"
+        #f"{'Large (np)':<15}\t{'Large (p)':<15}\t{'Large (nvp)':<15}"
+    )
+    separator = "-" * len(header)
+    print(header)
+    #print(separator)
+    
+    for result in results:
+        row = (
+            f"{result['Program Name']:<15}\t"
+            f"{result['Small (np)']:<15.6f}\t{result['Small (p)']:<15.6f}\t"
+            f"{result['Medium (np)']:<15.6f}\t{result['Medium (p)']:<15.6f}\t"
+            f"{result['Large (np)']:<15.6f}\t{result['Large (p)']:<15.6f}"
+            #f"{result['Small (np)']:<15.6f}\t{result['Small (p)']:<15.6f}\t{result['Small (nvp)']:<15.6f}\t"
+            #f"{result['Medium (np)']:<15.6f}\t{result['Medium (p)']:<15.6f}\t{result['Medium (nvp)']:<15.6f}\t"
+            #f"{result['Large (np)']:<15.6f}\t{result['Large (p)']:<15.6f}\t{result['Large (nvp)']:<15.6f}"
+        )
+        print(row)
 
 #benchmark_runtime_overhead()
+#benchmark_runtime_overhead_full()
 #benchmark_prediction_accuracy()
-benchmark_identify_issues()
+#benchmark_identify_issues()
 #benchmark_hash_overhead()
-#benchmark_hash_overhead_torture()
+benchmark_hash_overhead_torture()
+#benchmark_runtime_overhead_torture()
+#benchmark_transfer_rate_torture()
 #benchmark_hash_collisions()
