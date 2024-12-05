@@ -12,7 +12,7 @@ import math
 
 eval_dir = os.getcwd()
 build_dir = f"{eval_dir}/../build"
-profiler_command = f"{build_dir}/ompdataprof"
+profiler_command = f"{build_dir}/ompdataperf"
 comparison_prof_command = "nsys profile"
 
 benchmarks = [

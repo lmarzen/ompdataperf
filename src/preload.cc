@@ -8,19 +8,19 @@
 #include <unistd.h>
 #include <vector>
 
-const char *OMPDATAPROF_VERSION = "0.0.1-alpha";
+const char *OMPDATAPERF_VERSION = "0.0.1-alpha";
 
 void print_help() {
-  std::cout << "Usage: ompdataprof [options] [program] [program arguments]\n";
+  std::cout << "Usage: ompdataperf [options] [program] [program arguments]\n";
   std::cout << "Options:\n";
   std::cout << "  -h, --help              Show this help message\n";
   std::cout << "  -q, --quiet             Suppress warnings\n";
   std::cout << "  -v, --verbose           Enable verbose output\n";
-  std::cout << "  --version               Print the version of ompdataprof\n";
+  std::cout << "  --version               Print the version of ompdataperf\n";
 }
 
 void print_version() {
-  std::cout << "ompdataprof version " << OMPDATAPROF_VERSION << "\n";
+  std::cout << "ompdataperf version " << OMPDATAPERF_VERSION << "\n";
 }
 
 void print_env(const char *name) {
@@ -48,7 +48,7 @@ void safe_setenv(const char *name, const char *value, int overwrite) {
   return;
 }
 
-/* Attempts to set up the OMP_TOOL environment variable for ompdataprof. Returns
+/* Attempts to set up the OMP_TOOL environment variable for ompdataperf. Returns
  * on success, otherwise prints an error message and exits.
  */
 void setenv_omp_tool() {
@@ -63,13 +63,13 @@ void setenv_omp_tool() {
 }
 
 /* Attempts to set up the OMP_TOOL_LIBRARIES environment variable for
- * ompdataprof. Assumes that libompdataprof.so is in the same directory as the
+ * ompdataperf. Assumes that libompdataperf.so is in the same directory as the
  * current running executable. Returns on success, otherwise prints an error
  * message and exits.
  */
 void setenv_omp_tool_libraries(const char *exec_path) {
   namespace fs = std::filesystem;
-  const char *lib_name = "libompdataprof.so";
+  const char *lib_name = "libompdataperf.so";
   fs::path lib_path;
   try {
     fs::path exec_full_path = fs::canonical(exec_path);
@@ -94,7 +94,7 @@ void setenv_omp_tool_libraries(const char *exec_path) {
 }
 
 /* Attempts to set up the OMP_TOOL_VERBOSE_INIT environment variable for
- * ompdataprof. Returns on success, otherwise prints an error message and exits.
+ * ompdataperf. Returns on success, otherwise prints an error message and exits.
  */
 void setenv_omp_tool_verbose_init(int verbose) {
   // If OMP_TOOL_VERBOSE_INIT is already set, don't overwrite it.

@@ -350,7 +350,7 @@ ompt_start_tool(unsigned int omp_version, const char *runtime_version) {
     // of 5.0 and most of 5.1/2. llvm 19 DOES implement the APIs this tool
     // depends on, but it claims omp_version 201611 (5.0 preview 1) so this
     // warning is printed, though no features have been degraded.
-    std::cerr << "warning: OMPDataProf requires OMPT interface version 5.1 (or "
+    std::cerr << "warning: OMPDataPerf requires OMPT interface version 5.1 (or "
                  "later), but found version "
               << omp_version_to_string(omp_version)
               << ". Some features may be degraded.\n";

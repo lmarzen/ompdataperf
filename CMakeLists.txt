@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.12)
 set(CMAKE_C_COMPILER "clang")
 set(CMAKE_CXX_COMPILER "clang++")
 
-project(OMPDataProf C CXX)
+project(OMPDataPerf C CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(NOT CMAKE_BUILD_TYPE)
@@ -17,16 +17,16 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_library(libompdataprof SHARED src/tool.cc)
-target_sources(libompdataprof PRIVATE src/analyze.cc src/symbolizer.cc)
+add_library(libompdataperf SHARED src/tool.cc)
+target_sources(libompdataperf PRIVATE src/analyze.cc src/symbolizer.cc)
 
 find_library(LIBDW dw REQUIRED)
-target_link_libraries(libompdataprof PRIVATE ${LIBDW})
+target_link_libraries(libompdataperf PRIVATE ${LIBDW})
 
-# Set the library output name (libompdataprof.so)
-set_target_properties(libompdataprof PROPERTIES OUTPUT_NAME "ompdataprof")
+# Set the library output name (libompdataperf.so)
+set_target_properties(libompdataperf PROPERTIES OUTPUT_NAME "ompdataperf")
 
-add_executable(ompdataprof src/preload.cc)
+add_executable(ompdataperf src/preload.cc)
 
 
 option(ENABLE_COLLISION_CHECKING "Enable hash collision checking. WARNING: enabling this option will massively slow down profiling and hugely increase memory footprint" OFF)
@@ -70,7 +70,7 @@ if(HASH_FUNCTION STREQUAL "CityHash32" OR
   add_library(cityhash STATIC hashes/cityhash/src/city.cc)
   target_include_directories(cityhash PRIVATE ${CMAKE_BINARY_DIR}/hashes/cityhash)
   set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native")
-  target_link_libraries(libompdataprof PRIVATE cityhash)
+  target_link_libraries(libompdataperf PRIVATE cityhash)
 elseif(HASH_FUNCTION STREQUAL "FarmHash32" OR
        HASH_FUNCTION STREQUAL "FarmHash64" OR
        HASH_FUNCTION STREQUAL "FarmHash128")
@@ -83,7 +83,7 @@ elseif(HASH_FUNCTION STREQUAL "FarmHash32" OR
   add_library(farmhash STATIC hashes/farmhash/src/farmhash.cc)
   target_include_directories(farmhash PRIVATE ${CMAKE_BINARY_DIR}/hashes/farmhash)
   set_target_properties(farmhash PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native")
-  target_link_libraries(libompdataprof PRIVATE farmhash)
+  target_link_libraries(libompdataperf PRIVATE farmhash)
 elseif(HASH_FUNCTION STREQUAL "MeowHash")
   include_directories(hashes/meow_hash)
   set_source_files_properties(src/analyze.cc src/tool.cc
@@ -115,7 +115,7 @@ elseif(HASH_FUNCTION STREQUAL "t1ha0_ia32aes_avx" OR
   set_target_properties(t1ha PROPERTIES C_STANDARD 11)
   set_target_properties(t1ha PROPERTIES C_STANDARD_REQUIRED ON)
   set_target_properties(t1ha PROPERTIES C_EXTENSIONS OFF)
-  target_link_libraries(libompdataprof PRIVATE t1ha)
+  target_link_libraries(libompdataperf PRIVATE t1ha)
 elseif(HASH_FUNCTION STREQUAL "XXH32" OR
        HASH_FUNCTION STREQUAL "XXH64" OR
        HASH_FUNCTION STREQUAL "XXH3_64bits" OR
@@ -123,7 +123,7 @@ elseif(HASH_FUNCTION STREQUAL "XXH32" OR
   include_directories(hashes/xxHash)
   add_library(xxhash STATIC hashes/xxHash/xxhash.c)
   set_target_properties(xxhash PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native")
-  target_link_libraries(libompdataprof PRIVATE xxhash)
+  target_link_libraries(libompdataperf PRIVATE xxhash)
 else()
   message(FATAL_ERROR "Unsupported hash function: ${HASH_FUNCTION}")
 endif()
