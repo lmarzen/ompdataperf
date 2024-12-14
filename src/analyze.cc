@@ -502,84 +502,77 @@ void print_potential_resource_savings(
         &repeated_alloc_durations,
     duration<uint64_t, std::nano> exec_time, int num_devices) {
 
-  duration<uint64_t, std::nano> pot_dd_time(0);
-  float pot_dd_time_percent = 0.f;
+  // set of potentially unnecessary operations
+  std::set<const data_op_info_t *> pot_unnecessary_ops;
+
   uint64_t pot_dd_calls = 0;
-  uint64_t pot_dd_bytes = 0;
   for (auto it = duplicate_transfers_durations.rbegin();
        it != duplicate_transfers_durations.rend(); ++it) {
-    const duration<uint64_t, std::nano> time = it->first;
+    // we don't assume the first transfer to be necessary, but anything after
+    // that is assumed unnecessary.
     const std::vector<const data_op_info_t *> *info_list_ptr = it->second;
-    const uint64_t calls = info_list_ptr->size();
-    const duration<uint64_t, std::nano> time_avg(
-        (uint64_t)std::roundf(time.count() / (float)calls));
-    assert(!info_list_ptr->empty());
-    const uint64_t transfer_size = (*info_list_ptr)[0]->bytes;
-    const uint64_t bytes = transfer_size * (info_list_ptr->size() - 1);
-
-    const duration<uint64_t, std::nano> pot_time_diff = time - time_avg;
-    pot_dd_time += pot_time_diff;
-    pot_dd_time_percent += pot_time_diff.count() / (float)exec_time.count();
-    pot_dd_calls += calls - 1;
-    pot_dd_bytes += bytes - transfer_size;
+    pot_dd_calls += info_list_ptr->size() - 1;
+    for (size_t i = 1; i < info_list_ptr->size(); ++i) {
+      pot_unnecessary_ops.emplace((*info_list_ptr)[i]);
+    }
   }
 
-  duration<uint64_t, std::nano> pot_rt_time(0);
-  float pot_rt_time_percent = 0.f;
   uint64_t pot_rt_calls = 0;
-  // uint64_t pot_rt_bytes = 0;
-  uint64_t pot_rt_unique_calls = 0;
-  uint64_t pot_rt_unique_bytes = 0;
-
   for (auto it = round_trip_durations.rbegin();
        it != round_trip_durations.rend(); ++it) {
-    // const duration<uint64_t, std::nano> time = it->first;
-    // const data_op_info_t *tx_ptr = it->second->front().first;
-    const data_op_info_t *rx_ptr = it->second->front().second;
-    const duration<uint64_t, std::nano> pot_time_diff =
-        rx_ptr->end_time - rx_ptr->start_time;
-    pot_rt_time += pot_time_diff;
-    pot_rt_time_percent += pot_time_diff.count() / (float)exec_time.count();
-    pot_rt_calls += it->second->size();
-    // pot_rt_bytes += (2 * pot_rt_calls * rx_ptr->bytes) - 1;
-    // If there are multiple round trips between the same 2 devices with the
-    // same hash, we only count it once, since duplicate data transfers will
-    // catch that and since it helps us more easily provide a more accurate
-    // potential speedup since we don't double count any types of redundant
-    // data transfers.
-    pot_rt_unique_calls += 1;
-    pot_rt_unique_bytes += rx_ptr->bytes;
-  }
-
-  duration<uint64_t, std::nano> pot_ad_time(0);
-  float pot_ad_time_percent = 0.f;
-  uint64_t pot_ad_calls = 0;
-  uint64_t pot_ad_bytes = 0;
-  for (auto it = repeated_alloc_durations.rbegin();
-       it != repeated_alloc_durations.rend(); ++it) {
-    const duration<uint64_t, std::nano> time = it->first;
     const std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>
         *info_list_ptr = it->second;
-    const uint64_t calls = info_list_ptr->size();
-    const duration<uint64_t, std::nano> time_avg(
-        (uint64_t)std::roundf(time.count() / (float)calls));
-    assert(!info_list_ptr->empty());
-    const uint64_t alloc_size = (*info_list_ptr)[0].first->bytes;
-    const uint64_t bytes = alloc_size * (info_list_ptr->size() - 1);
-
-    const duration<uint64_t, std::nano> pot_time_diff = time - time_avg;
-    pot_ad_time += pot_time_diff;
-    pot_ad_time_percent += pot_time_diff.count() / (float)exec_time.count();
-    pot_ad_calls += calls - 1;
-    pot_ad_bytes += bytes - alloc_size;
+    pot_rt_calls += info_list_ptr->size();
+    for (size_t i = 0; i < info_list_ptr->size(); ++i) {
+      const data_op_info_t *tx_ptr = (*info_list_ptr)[i].first;
+      const data_op_info_t *rx_ptr = (*info_list_ptr)[i].second;
+      pot_unnecessary_ops.emplace(tx_ptr);
+      pot_unnecessary_ops.emplace(rx_ptr);
+    }
   }
 
-  const duration<uint64_t, std::nano> pot_time =
-      pot_dd_time + pot_rt_time + pot_ad_time;
-  const float pot_time_percent =
-      pot_dd_time_percent + pot_rt_time_percent + pot_ad_time_percent;
-  const uint64_t pot_calls = pot_dd_calls + pot_rt_unique_calls;
-  const uint64_t pot_bytes = pot_dd_bytes + pot_rt_unique_bytes;
+  uint64_t pot_ad_calls = 0;
+  for (auto it = repeated_alloc_durations.rbegin();
+       it != repeated_alloc_durations.rend(); ++it) {
+    // we don't assume the first allocation to be necessary and last
+    // deallocation to be necessary, everything else is assumed unnecessary.
+    const std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>
+        *info_list_ptr = it->second;
+    pot_ad_calls += info_list_ptr->size() - 1;
+
+    for (size_t i = 0; i < info_list_ptr->size(); ++i) {
+      const data_op_info_t *alloc_ptr = (*info_list_ptr)[i].first;
+      const data_op_info_t *delete_ptr = (*info_list_ptr)[i].second;
+      if (i != 0) {
+        pot_unnecessary_ops.emplace(alloc_ptr);
+      }
+      if (i != info_list_ptr->size() - 1) {
+        pot_unnecessary_ops.emplace(delete_ptr);
+      }
+    }
+  }
+
+  duration<uint64_t, std::nano> pot_time(0);
+  float pot_time_percent = 0;
+  uint64_t pot_trans_calls = 0;
+  uint64_t pot_trans_bytes = 0;
+  uint64_t pot_alloc_calls = 0;
+  uint64_t pot_alloc_bytes = 0;
+  for (auto it = pot_unnecessary_ops.begin(); it != pot_unnecessary_ops.end();
+       ++it) {
+    const data_op_info_t *entry = *it;
+    const duration<uint64_t, std::nano> pot_time_diff =
+        entry->end_time - entry->start_time;
+    pot_time += pot_time_diff;
+    pot_time_percent += pot_time_diff.count() / (float)exec_time.count();
+    if (is_alloc_op(entry->optype)) {
+      pot_alloc_calls += 1;
+      pot_alloc_bytes += entry->bytes;
+    } else if (is_transfer_op(entry->optype)) {
+      pot_trans_calls += 1;
+      pot_trans_bytes += entry->bytes;
+    }
+  }
 
   std::cerr << "\n  Found " << std::dec << pot_dd_calls
             << " potential duplicate data transfer(s) with "
@@ -597,13 +590,13 @@ void print_potential_resource_savings(
             << "\n    time              "
             << format_duration(pot_time.count(), w)
             << "\n    data transfers    "
-            << format_uint(pot_calls, w)
+            << format_uint(pot_trans_calls, w)
             << "\n    bytes transferred "
-            << format_uint(pot_bytes, w)
+            << format_uint(pot_trans_bytes, w)
             << "\n    allocations       "
-            << format_uint(pot_ad_calls, w)
+            << format_uint(pot_alloc_calls, w)
             << "\n    bytes allocated   "
-            << format_uint(pot_ad_bytes, w)
+            << format_uint(pot_alloc_bytes, w)
             << "\n";
   // clang-format on
   return;
