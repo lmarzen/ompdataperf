@@ -508,8 +508,7 @@ void print_potential_resource_savings(
   uint64_t pot_dd_calls = 0;
   for (auto it = duplicate_transfers_durations.rbegin();
        it != duplicate_transfers_durations.rend(); ++it) {
-    // we don't assume the first transfer to be necessary, but anything after
-    // that is assumed unnecessary.
+    // we assume the first transfer to be unavoidable
     const std::vector<const data_op_info_t *> *info_list_ptr = it->second;
     pot_dd_calls += info_list_ptr->size() - 1;
     for (size_t i = 1; i < info_list_ptr->size(); ++i) {
@@ -520,13 +519,16 @@ void print_potential_resource_savings(
   uint64_t pot_rt_calls = 0;
   for (auto it = round_trip_durations.rbegin();
        it != round_trip_durations.rend(); ++it) {
+    // we assume the first transfer to be unavoidable
     const std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>
         *info_list_ptr = it->second;
     pot_rt_calls += info_list_ptr->size();
     for (size_t i = 0; i < info_list_ptr->size(); ++i) {
-      const data_op_info_t *tx_ptr = (*info_list_ptr)[i].first;
+      if (i != 0) {
+        const data_op_info_t *tx_ptr = (*info_list_ptr)[i].first;
+        pot_unnecessary_ops.emplace(tx_ptr);
+      }
       const data_op_info_t *rx_ptr = (*info_list_ptr)[i].second;
-      pot_unnecessary_ops.emplace(tx_ptr);
       pot_unnecessary_ops.emplace(rx_ptr);
     }
   }
@@ -534,12 +536,10 @@ void print_potential_resource_savings(
   uint64_t pot_ad_calls = 0;
   for (auto it = repeated_alloc_durations.rbegin();
        it != repeated_alloc_durations.rend(); ++it) {
-    // we don't assume the first allocation to be necessary and last
-    // deallocation to be necessary, everything else is assumed unnecessary.
+    // we assume the first allocation and last delete to be unavoidable
     const std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>
         *info_list_ptr = it->second;
     pot_ad_calls += info_list_ptr->size() - 1;
-
     for (size_t i = 0; i < info_list_ptr->size(); ++i) {
       const data_op_info_t *alloc_ptr = (*info_list_ptr)[i].first;
       const data_op_info_t *delete_ptr = (*info_list_ptr)[i].second;
