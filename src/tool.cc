@@ -193,7 +193,7 @@ static void on_ompt_callback_target_data_op_emi(
     if (is_async) {
       const std::pair<int, const void *> key(dest_device_num, dest_addr);
       assert(!s_async_data_op_start_times.contains(key));
-      s_async_data_op_start_times.emplace(key, time_now);
+      s_async_data_op_start_times[key] = time_now;
     } else {
       s_sync_data_op_start_time = time_now;
     }

@@ -744,7 +744,7 @@ void analyze_duplicate_transfers(
       continue;
     }
     const std::pair<HASH_T, int> key(entry.hash, entry.dest_device_num);
-    received.emplace(key, &entry);
+    received[key].push_back(&entry);
   }
 
   for (auto &entry : received) {
@@ -783,7 +783,7 @@ void analyze_round_trip_transfers(
       continue;
     }
     const std::pair<HASH_T, int> key(entry.hash, entry.dest_device_num);
-    received.emplace(key, &entry);
+    received[key].push_back(&entry);
   }
 
   // _Round Trip Transfers_ are when data is transferred then the same data is
@@ -1263,7 +1263,7 @@ void analyze_codeptr_durations(
   for (const data_op_info_t &entry : *data_op_log_ptr) {
     const std::pair<const void *, ompt_target_data_op_t> key(entry.codeptr_ra,
                                                              entry.optype);
-    codeptr_to_data_op.emplace(key, &entry);
+    codeptr_to_data_op[key].push_back(&entry);
   }
   for (auto &entry : codeptr_to_data_op) {
     const std::vector<const data_op_info_t *> *info_list_ptr = &entry.second;
