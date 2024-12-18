@@ -581,8 +581,6 @@ void print_potential_resource_savings(
        it != duplicate_transfer_durations.rend(); ++it) {
     // we assume the first transfer to be unavoidable
     const std::vector<const data_op_info_t *> info_list = it->second;
-    std::cout << "info_list_ptr=" << &info_list << "\n";
-    std::cout << "info_list_ptr_size=" << info_list.size() << "\n";
     pot_dd_calls += info_list.size() - 1;
     for (size_t i = 1; i < info_list.size(); ++i) {
       pot_unnecessary_ops.emplace(info_list[i]);
@@ -758,8 +756,6 @@ void analyze_duplicate_transfers(
     for (const data_op_info_t *transfer_ptr : duplicate_transfers) {
       duration += transfer_ptr->end_time - transfer_ptr->start_time;
     }
-    std::cout << "1: info_list_ptr=" << &duplicate_transfers << "\n";
-    std::cout << "1: info_list_ptr_size=" << duplicate_transfers.size() << "\n";
     duplicate_transfer_durations.emplace(duration, duplicate_transfers);
   }
 
