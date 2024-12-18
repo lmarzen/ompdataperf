@@ -248,7 +248,7 @@ void print_issues_duplicate_style(
     const uint64_t calls = info_list.size();
     const duration<uint64_t, std::nano> time_avg(
         (uint64_t)std::roundf(time.count() / (float)calls));
-    assert(!info_list_ptr->empty());
+    assert(!info_list.empty());
     const int dest_device_num = info_list[0]->dest_device_num;
     const uint64_t transfer_size = info_list[0]->bytes;
     const uint64_t bytes = transfer_size * info_list.size();
@@ -1219,7 +1219,7 @@ void print_codeptr_durations(
     duration<uint64_t, std::nano> time_min(UINT64_MAX);
     duration<uint64_t, std::nano> time_max(0);
     uint64_t bytes = 0;
-    assert(!info_list_ptr->empty());
+    assert(!info_list_ptr.empty());
     const ompt_target_data_op_t optype = info_list[0]->optype;
     const void *codeptr_ra = info_list[0]->codeptr_ra;
     for (const data_op_info_t *entry_ptr : info_list) {
@@ -1271,7 +1271,7 @@ void analyze_codeptr_durations(
   for (auto &entry : codeptr_to_data_op) {
     const std::vector<const data_op_info_t *> &info_list = entry.second;
     duration<uint64_t, std::nano> duration(0);
-    assert(!info_list_ptr->empty());
+    assert(!info_list_ptr.empty());
     for (const data_op_info_t *info_ptr : info_list) {
       duration += info_ptr->end_time - info_ptr->start_time;
     }
