@@ -833,6 +833,8 @@ void analyze_round_trip_transfers(
     round_trip_durations.emplace(trip_duration, entry.second);
   }
 
+  print_round_trip_transfers(symbolizer, round_trip_durations, exec_time,
+                             num_devices);
   return;
 }
 
@@ -1143,29 +1145,23 @@ void analyze_inefficient_transfers(
       device_alloc_log;
   std::vector<std::vector<const data_op_info_t * /*transfer*/>>
       device_transfer_log;
-  /*
   get_device_target_log(device_target_log, target_log_ptr, num_devices);
   get_device_alloc_log(device_alloc_log, alloc_log, num_devices);
   get_device_transfer_log(device_transfer_log, data_op_log_ptr, num_devices);
-                           */
 
   std::set<std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
                      std::vector<std::pair<const data_op_info_t * /*alloc*/,
                                            const data_op_info_t * /*delete*/>>>>
       unused_alloc_durations;
-  /*
   analyze_unused_allocs(symbolizer, unused_alloc_durations, device_target_log,
                         device_alloc_log, exec_time, num_devices);
-                           */
 
   std::set<std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
                      std::vector<const data_op_info_t *>>>
       unused_transfer_durations;
-  /*
   analyze_unused_transfers(symbolizer, unused_transfer_durations,
                            device_target_log, device_transfer_log, exec_time,
                            num_devices);
-                           */
 
   print_potential_resource_savings(
       duplicate_transfer_durations, round_trip_durations,
