@@ -397,7 +397,7 @@ void print_issues_alloc_style(
 void print_duplicate_transfers(
     Symbolizer &symbolizer,
     const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
-                             const std::vector<const data_op_info_t *> *>>
+                             const std::vector<const data_op_info_t *>>>
         &duplicate_transfer_durations,
     duration<uint64_t, std::nano> exec_time, int num_devices) {
 
@@ -552,7 +552,7 @@ void print_unused_transfers(
 
 void print_potential_resource_savings(
     const std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
-                             const std::vector<const data_op_info_t *> *>>
+                             std::vector<const data_op_info_t *>>>
         &duplicate_transfer_durations,
     const std::set<std::pair<
         duration<uint64_t, std::nano> /*total_time*/,
@@ -582,6 +582,8 @@ void print_potential_resource_savings(
        it != duplicate_transfer_durations.rend(); ++it) {
     // we assume the first transfer to be unavoidable
     const std::vector<const data_op_info_t *> *info_list_ptr = it->second;
+    std::cout << "info_list_ptr=" << info_list_ptr << "\n";
+    std::cout << "info_list_ptr_size=" << info_list_ptr->size() << "\n";
     pot_dd_calls += info_list_ptr->size() - 1;
     for (size_t i = 1; i < info_list_ptr->size(); ++i) {
       pot_unnecessary_ops.emplace((*info_list_ptr)[i]);
@@ -731,7 +733,7 @@ void print_peak_device_memory_allocation(
 void analyze_duplicate_transfers(
     Symbolizer &symbolizer,
     std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
-                       const std::vector<const data_op_info_t *> *>>
+                       std::vector<const data_op_info_t *>>>
         &duplicate_transfer_durations,
     const std::vector<data_op_info_t> *data_op_log_ptr,
     duration<uint64_t, std::nano> exec_time, int num_devices) {
@@ -748,17 +750,19 @@ void analyze_duplicate_transfers(
   }
 
   for (auto &entry : received) {
-    std::vector<const data_op_info_t *> *duplicate_transfers_ptr =
+    std::vector<const data_op_info_t *> &duplicate_transfers =
         &entry.second;
-    if (duplicate_transfers_ptr->size() < 2) {
+    if (duplicate_transfers.size() < 2) {
       // not a duplicate transfer if it was unique hash
       continue;
     }
     duration<uint64_t, std::nano> duration(0);
-    for (const data_op_info_t *transfer_ptr : *duplicate_transfers_ptr) {
+    for (const data_op_info_t *transfer_ptr : duplicate_transfers) {
       duration += transfer_ptr->end_time - transfer_ptr->start_time;
     }
-    duplicate_transfer_durations.emplace(duration, duplicate_transfers_ptr);
+    std::cout << "1: info_list_ptr=" << &duplicate_transfers << "\n";
+    std::cout << "1: info_list_ptr_size=" << duplicate_transfers.size() << "\n";
+    duplicate_transfer_durations.emplace(duration, duplicate_transfers);
   }
 
   print_duplicate_transfers(symbolizer, duplicate_transfer_durations, exec_time,
@@ -845,9 +849,7 @@ void get_allocation_pairs(
                           const data_op_info_t * /*delete*/>> &alloc_log,
     std::vector<uint64_t> &peak_allocated_bytes,
     const std::vector<data_op_info_t> *data_op_log_ptr, int num_devices) {
-  alloc_log =
-      std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>(
-          num_devices);
+  alloc_log.clear();
   peak_allocated_bytes = std::vector<uint64_t>(num_devices, 0);
   std::vector<uint64_t> num_allocated_bytes(num_devices, 0);
   std::map<std::pair<void * /*tgt_addr*/, int /*tgt_device_num*/>,
@@ -866,9 +868,7 @@ void get_allocation_pairs(
     } else if (is_delete_op(entry.optype)) {
       std::pair<void *, int> akey(entry.src_addr, entry.src_device_num);
       const data_op_info_t *alloc_entry = current_allocs.extract(akey).mapped();
-      std::tuple<void *, int, size_t> rkey(alloc_entry->src_addr,
-                                           alloc_entry->dest_device_num,
-                                           alloc_entry->bytes);
+      alloc_log.emplace_back(alloc_entry, &entry);
       num_allocated_bytes[alloc_entry->dest_device_num] -= alloc_entry->bytes;
     }
   }
@@ -912,6 +912,7 @@ void analyze_repeated_allocs(
   for (const auto &entry_pair : alloc_log) {
     const data_op_info_t *alloc_entry = entry_pair.first;
     const data_op_info_t *delete_entry = entry_pair.second;
+    assert(alloc_entry != nullptr);
     std::tuple<void *, int, size_t> rkey(alloc_entry->src_addr,
                                          alloc_entry->dest_device_num,
                                          alloc_entry->bytes);
@@ -1115,7 +1116,7 @@ void analyze_inefficient_transfers(
     duration<uint64_t, std::nano> exec_time, int num_devices) {
 
   std::set<std::pair<duration<uint64_t, std::nano> /*total_time*/,
-                     const std::vector<const data_op_info_t *> *>>
+                     std::vector<const data_op_info_t *>>>
       duplicate_transfer_durations;
   analyze_duplicate_transfers(symbolizer, duplicate_transfer_durations,
                               data_op_log_ptr, exec_time, num_devices);
@@ -1149,24 +1150,30 @@ void analyze_inefficient_transfers(
       device_alloc_log;
   std::vector<std::vector<const data_op_info_t * /*transfer*/>>
       device_transfer_log;
+  /*
   get_device_target_log(device_target_log, target_log_ptr, num_devices);
   get_device_alloc_log(device_alloc_log, alloc_log, num_devices);
   get_device_transfer_log(device_transfer_log, data_op_log_ptr, num_devices);
+			   */
 
   std::set<std::pair<
       std::chrono::duration<uint64_t, std::nano> /*total_time*/,
       const std::vector<std::pair<const data_op_info_t * /*alloc*/,
                                   const data_op_info_t * /*delete*/>> *>>
       unused_alloc_durations;
+  /*
   analyze_unused_allocs(symbolizer, unused_alloc_durations, device_target_log,
                         device_alloc_log, exec_time, num_devices);
+			   */
 
   std::set<std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
                      const std::vector<const data_op_info_t *> *>>
       unused_transfer_durations;
+  /*
   analyze_unused_transfers(symbolizer, unused_transfer_durations,
                            device_target_log, device_transfer_log, exec_time,
                            num_devices);
+			   */
 
   print_potential_resource_savings(
       duplicate_transfer_durations, round_trip_durations,
