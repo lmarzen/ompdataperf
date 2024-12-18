@@ -17,10 +17,12 @@ namespace {
 steady_clock::time_point s_start_time;
 steady_clock::time_point s_end_time;
 
-/* As the user's program runs we log information about target data operations to
- * this array which is analyzed once the execution of the user's program has
+/* As the user's program runs we log information about target operations to this
+ * array which is analyzed once the execution of the user's program has
  * completed.
  */
+std::vector<target_info_t> *s_target_log_ptr;
+std::mutex s_target_log_mutex;
 std::vector<data_op_info_t> *s_data_op_log_ptr;
 std::mutex s_data_op_log_mutex;
 
@@ -103,16 +105,64 @@ void try_collision_map_insert(
 }
 #endif // ENABLE_COLLISION_CHECKING
 
+static void on_ompt_callback_target_emi(ompt_target_t kind,
+                                        ompt_scope_endpoint_t endpoint,
+                                        int device_num, ompt_data_t *task_data,
+                                        ompt_data_t *target_task_data,
+                                        ompt_data_t *target_data,
+                                        const void *codeptr_ra) {
+  // used to time synchronous data op
+  static thread_local steady_clock::time_point s_sync_target_start_time =
+      steady_clock::time_point();
+  // used to time asynchronous data op
+  static thread_local std::map<ompt_data_t * /*target_task_data*/,
+                               steady_clock::time_point /*start_time*/>
+      s_async_target_start_times;
+
+  if (!is_target_exec(kind)) {
+    return;
+  }
+
+  const steady_clock::time_point time_now = steady_clock::now();
+
+  bool is_async = is_async_target_exec(kind);
+  if (endpoint == ompt_scope_begin) {
+    // commit start timestamp
+    s_sync_target_start_time = time_now;
+    if (is_async) {
+      assert((target_task_data != nullptr) &&
+             !s_async_target_start_times.contains(target_task_data));
+      s_async_target_start_times[target_task_data] = time_now;
+    } else {
+      s_sync_target_start_time = time_now;
+    }
+
+  } else if (endpoint == ompt_scope_end) {
+    // commit end timestamp
+    steady_clock::time_point start_time;
+    if (is_async) {
+      assert((target_task_data != nullptr) &&
+             !s_async_target_start_times.contains(target_task_data));
+      start_time = s_async_target_start_times[target_task_data];
+      s_async_target_start_times.erase(target_task_data);
+    } else {
+      start_time = s_sync_target_start_time;
+    }
+    s_target_log_mutex.lock();
+    s_target_log_ptr->emplace_back(kind, device_num, start_time, time_now);
+    s_target_log_mutex.unlock();
+  }
+
+  return;
+}
+
 static void on_ompt_callback_target_data_op_emi(
     ompt_scope_endpoint_t endpoint, ompt_data_t *target_task_data,
     ompt_data_t *target_data, ompt_id_t *host_op_id,
     ompt_target_data_op_t optype, void *src_addr, int src_device_num,
     void *dest_addr, int dest_device_num, size_t bytes,
     const void *codeptr_ra) {
-  // get time
-  const steady_clock::time_point time_now = steady_clock::now();
-
-  // the index of the last synchronous entry into s_data_op_log for each thread
+  // used to time synchronous data op
   static thread_local steady_clock::time_point s_sync_data_op_start_time =
       steady_clock::time_point();
   // used to time asynchronous data op
@@ -121,13 +171,14 @@ static void on_ompt_callback_target_data_op_emi(
       steady_clock::time_point /*start_time*/>
       s_async_data_op_start_times;
 
-  bool is_async = is_async_op(optype);
+  if (!(is_transfer_op(optype) || is_alloc_op(optype) ||
+        is_delete_op(optype))) {
+    return;
+  }
 
-  // async operations have not been tested, as they are not emitted by llvm's
-  // openmp runtime implementation as of llvm 19.1.0-rc3. However, I have
-  // written the code to handle these operations. This assertion just serves as
-  // a reminder to test this once an openmp runtime actually implements this.
-  assert(!is_async);
+  const steady_clock::time_point time_now = steady_clock::now();
+
+  bool is_async = is_async_op(optype);
 
   if (endpoint == ompt_scope_begin) {
     // commit start timestamp
@@ -177,11 +228,6 @@ static void on_ompt_callback_target_data_op_emi(
     }
     s_collision_map_mutex.unlock();
 #endif // ENABLE_COLLISION_CHECKING
-
-  } else {
-    std::cerr << "warning: unknown ompt target data op. Not profiling optype="
-              << std::dec << optype << "\n";
-    assert(false);
   }
 
   return;
@@ -270,7 +316,12 @@ int ompt_initialize(ompt_function_lookup_t lookup, int initial_device_num,
   result = ompt_set_callback(
       ompt_callback_target_data_op_emi,
       reinterpret_cast<ompt_callback_t>(on_ompt_callback_target_data_op_emi));
-
+  if (result != ompt_set_always) {
+    return 0;
+  }
+  result = ompt_set_callback(
+      ompt_callback_target_emi,
+      reinterpret_cast<ompt_callback_t>(on_ompt_callback_target_emi));
   if (result != ompt_set_always) {
     return 0;
   }
@@ -278,7 +329,7 @@ int ompt_initialize(ompt_function_lookup_t lookup, int initial_device_num,
   s_start_time = steady_clock::now();
   return 1;
 }
-
+#include <algorithm>
 void ompt_finalize(ompt_data_t *data) {
   s_end_time = steady_clock::now();
 
@@ -287,9 +338,26 @@ void ompt_finalize(ompt_data_t *data) {
   // total program execution time
   const duration<uint64_t, std::nano> exec_time = s_end_time - s_start_time;
   const int num_devices = ompt_get_num_devices();
+
+  // ensure that event logs are in chronological order
+  std::sort(s_target_log_ptr->begin(), s_target_log_ptr->end(),
+            [](const target_info_t &a, const target_info_t &b) {
+              if (a.start_time != b.start_time) {
+                return a.start_time < b.start_time;
+              }
+              return a.end_time < b.end_time;
+            });
+  std::sort(s_data_op_log_ptr->begin(), s_data_op_log_ptr->end(),
+            [](const data_op_info_t &a, const data_op_info_t &b) {
+              if (a.start_time != b.start_time) {
+                return a.start_time < b.start_time;
+              }
+              return a.end_time < b.end_time;
+            });
+
   Symbolizer symbolizer;
-  analyze_redundant_transfers(symbolizer, s_data_op_log_ptr, exec_time,
-                              num_devices);
+  analyze_inefficient_transfers(symbolizer, s_target_log_ptr, s_data_op_log_ptr,
+                                exec_time, num_devices);
   analyze_codeptr_durations(symbolizer, s_data_op_log_ptr, exec_time);
   print_summary(s_data_op_log_ptr, exec_time);
 #ifdef ENABLE_COLLISION_CHECKING
@@ -317,6 +385,7 @@ void ompt_finalize(ompt_data_t *data) {
     std::cerr << "\n" << symbolizer.get_errmsg() << "\n";
   }
 
+  delete s_target_log_ptr;
   delete s_data_op_log_ptr;
 #ifdef ENABLE_COLLISION_CHECKING
   delete s_collision_map_ptr;
@@ -356,6 +425,7 @@ ompt_start_tool(unsigned int omp_version, const char *runtime_version) {
               << ". Some features may be degraded.\n";
   }
 
+  s_target_log_ptr = new std::vector<target_info_t>();
   s_data_op_log_ptr = new std::vector<data_op_info_t>();
 #ifdef ENABLE_COLLISION_CHECKING
   s_collision_map_ptr = new std::map<HASH_T, std::set<data_info_t>>();
