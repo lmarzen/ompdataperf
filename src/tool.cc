@@ -111,11 +111,12 @@ static void on_ompt_callback_target_emi(ompt_target_t kind,
                                         ompt_data_t *target_task_data,
                                         ompt_data_t *target_data,
                                         const void *codeptr_ra) {
+  static thread_local uint64_t id = 0;
   // used to time synchronous data op
   static thread_local steady_clock::time_point s_sync_target_start_time =
       steady_clock::time_point();
   // used to time asynchronous data op
-  static thread_local std::map<ompt_data_t * /*target_task_data*/,
+  static thread_local std::map<uint64_t /*id*/,
                                steady_clock::time_point /*start_time*/>
       s_async_target_start_times;
 
@@ -131,8 +132,12 @@ static void on_ompt_callback_target_emi(ompt_target_t kind,
     s_sync_target_start_time = time_now;
     if (is_async) {
       assert((target_task_data != nullptr) &&
-             !s_async_target_start_times.contains(target_task_data));
-      s_async_target_start_times[target_task_data] = time_now;
+             !s_async_target_start_times.contains(target_task_data->value));
+      if (target_task_data != nullptr) {
+        target_task_data->value = id;
+        s_async_target_start_times[id] = time_now;
+        ++id;
+      }
     } else {
       s_sync_target_start_time = time_now;
     }
@@ -143,8 +148,10 @@ static void on_ompt_callback_target_emi(ompt_target_t kind,
     if (is_async) {
       assert((target_task_data != nullptr) &&
              !s_async_target_start_times.contains(target_task_data));
-      start_time = s_async_target_start_times[target_task_data];
-      s_async_target_start_times.erase(target_task_data);
+      if (target_task_data != nullptr) {
+        start_time = s_async_target_start_times[target_task_data->value];
+        s_async_target_start_times.erase(target_task_data->value);
+      }
     } else {
       start_time = s_sync_target_start_time;
     }
