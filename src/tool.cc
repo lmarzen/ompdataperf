@@ -132,7 +132,7 @@ static void on_ompt_callback_target_emi(ompt_target_t kind,
     s_sync_target_start_time = time_now;
     if (is_async) {
       assert((target_task_data != nullptr) &&
-             !s_async_target_start_times.contains(target_task_data->value));
+             !s_async_target_start_times.contains(id));
       if (target_task_data != nullptr) {
         target_task_data->value = id;
         s_async_target_start_times[id] = time_now;
@@ -147,7 +147,7 @@ static void on_ompt_callback_target_emi(ompt_target_t kind,
     steady_clock::time_point start_time;
     if (is_async) {
       assert((target_task_data != nullptr) &&
-             !s_async_target_start_times.contains(target_task_data));
+             s_async_target_start_times.contains(target_task_data->value));
       if (target_task_data != nullptr) {
         start_time = s_async_target_start_times[target_task_data->value];
         s_async_target_start_times.erase(target_task_data->value);
