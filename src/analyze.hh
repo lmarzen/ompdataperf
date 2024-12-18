@@ -101,78 +101,75 @@ void print_issues_duplicate_style(
     Symbolizer &symbolizer,
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
-        &transfer_durations,
+                  std::vector<const data_op_info_t *>>> &transfer_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_issues_alloc_style(
     Symbolizer &symbolizer,
-    const std::set<std::pair<
-        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-        const std::vector<std::pair<const data_op_info_t * /*alloc*/,
-                                    const data_op_info_t * /*delete*/>> *>>
+    const std::set<
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  std::vector<std::pair<const data_op_info_t * /*alloc*/,
+                                        const data_op_info_t * /*delete*/>>>>
         &alloc_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_duplicate_transfers(
     Symbolizer &symbolizer,
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
+                  std::vector<const data_op_info_t *>>>
         &duplicate_transfer_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_round_trip_transfers(
     Symbolizer &symbolizer,
-    const std::set<
-        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<std::pair<const data_op_info_t *,
-                                              const data_op_info_t *>> *>>
+    const std::set<std::pair<
+        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+        std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>>>
         &round_trip_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_repeated_allocs(
     Symbolizer &symbolizer,
-    const std::set<
-        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<std::pair<const data_op_info_t *,
-                                              const data_op_info_t *>> *>>
+    const std::set<std::pair<
+        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+        std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>>>
         &repeated_alloc_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_unused_allocs(
     Symbolizer &symbolizer,
-    const std::set<std::pair<
-        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-        const std::vector<std::pair<const data_op_info_t * /*alloc*/,
-                                    const data_op_info_t * /*delete*/>> *>>
+    const std::set<
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  std::vector<std::pair<const data_op_info_t * /*alloc*/,
+                                        const data_op_info_t * /*delete*/>>>>
         &unused_alloc_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_unused_transfers(
     Symbolizer &symbolizer,
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
+                  std::vector<const data_op_info_t *>>>
         &unused_transfer_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void print_potential_resource_savings(
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
+                  std::vector<const data_op_info_t *>>>
         &duplicate_transfer_durations,
-    const std::set<std::pair<
-        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-        const std::vector<std::pair<const data_op_info_t * /*tx*/,
-                                    const data_op_info_t * /*rx*/>> *>>
+    const std::set<
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  std::vector<std::pair<const data_op_info_t * /*tx*/,
+                                        const data_op_info_t * /*rx*/>>>>
         &round_trip_durations,
-    const std::set<std::pair<
-        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-        const std::vector<std::pair<const data_op_info_t * /*alloc*/,
-                                    const data_op_info_t * /*delete*/>> *>>
+    const std::set<
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  std::vector<std::pair<const data_op_info_t * /*alloc*/,
+                                        const data_op_info_t * /*delete*/>>>>
         &repeated_alloc_durations,
-    const std::set<std::pair<
-        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-        const std::vector<std::pair<const data_op_info_t * /*alloc*/,
-                                    const data_op_info_t * /*delete*/>> *>>
+    const std::set<
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  std::vector<std::pair<const data_op_info_t * /*alloc*/,
+                                        const data_op_info_t * /*delete*/>>>>
         &unused_alloc_durations,
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
+                  std::vector<const data_op_info_t *>>>
         &unused_transfer_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time);
 void print_peak_device_memory_allocation(
@@ -181,16 +178,15 @@ void analyze_duplicate_transfers(
     Symbolizer &symbolizer,
     std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
+                  std::vector<const data_op_info_t *>>>
         &duplicate_transfer_durations,
     const std::vector<data_op_info_t> *data_op_log_ptr,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void analyze_round_trip_transfers(
     Symbolizer &symbolizer,
-    std::set<
-        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<std::pair<const data_op_info_t *,
-                                              const data_op_info_t *>> *>>
+    std::set<std::pair<
+        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+        std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>>>
         &round_trip_durations,
     const std::vector<data_op_info_t> *data_op_log_ptr,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
@@ -201,10 +197,10 @@ void get_allocation_pairs(
     const std::vector<data_op_info_t> *data_op_log_ptr, int num_devices);
 void analyze_repeated_allocs(
     Symbolizer &symbolizer,
-    std::set<std::pair<
-        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-        const std::vector<std::pair<const data_op_info_t * /*alloc*/,
-                                    const data_op_info_t * /*delete*/>> *>>
+    std::set<
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  std::vector<std::pair<const data_op_info_t * /*alloc*/,
+                                        const data_op_info_t * /*delete*/>>>>
         &repeated_alloc_durations,
     const std::vector<std::pair<const data_op_info_t * /*alloc*/,
                                 const data_op_info_t * /*delete*/>> &alloc_log,
@@ -225,10 +221,10 @@ void get_device_transfer_log(
     const std::vector<data_op_info_t> *data_op_log_ptr, int num_devices);
 void analyze_unused_allocs(
     Symbolizer &symbolizer,
-    std::set<std::pair<
-        std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-        const std::vector<std::pair<const data_op_info_t * /*alloc*/,
-                                    const data_op_info_t * /*delete*/>> *>>
+    std::set<
+        std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
+                  std::vector<std::pair<const data_op_info_t * /*alloc*/,
+                                        const data_op_info_t * /*delete*/>>>>
         &unused_alloc_durations,
     const std::vector<std::vector<const target_info_t *>> &device_target_log,
     const std::vector<std::vector<std::pair<const data_op_info_t * /*alloc*/,
@@ -239,7 +235,7 @@ void analyze_unused_transfers(
     Symbolizer &symbolizer,
     std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
+                  std::vector<const data_op_info_t *>>>
         &unused_transfer_durations,
     const std::vector<std::vector<const target_info_t *>> &device_target_log,
     const std::vector<std::vector<const data_op_info_t * /*transfer*/>>
@@ -253,8 +249,7 @@ void print_codeptr_durations(
     Symbolizer &symbolizer,
     const std::set<
         std::pair<std::chrono::duration<uint64_t, std::nano> /*total_time*/,
-                  const std::vector<const data_op_info_t *> *>>
-        &codeptr_durations,
+                  std::vector<const data_op_info_t *>>> &codeptr_durations,
     std::chrono::duration<uint64_t, std::nano> exec_time, int num_devices);
 void analyze_codeptr_durations(
     Symbolizer &symbolizer, const std::vector<data_op_info_t> *data_op_log_ptr,
