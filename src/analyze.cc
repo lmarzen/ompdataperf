@@ -1017,7 +1017,7 @@ void analyze_unused_allocs(
         ++tgt_idx;
       }
       if (tgt_idx == _target_log.size() ||
-          _target_log[tgt_idx]->start_time > a->end_time) {
+          _target_log[tgt_idx]->start_time > d->end_time) {
         std::tuple<void *, int, size_t> key(a->src_addr, a->dest_device_num,
                                             a->bytes);
         unused_allocs[key].emplace_back(a, d);
@@ -1068,6 +1068,7 @@ void analyze_unused_transfers(
       while (tgt_idx < _target_log.size() &&
              _target_log[tgt_idx]->end_time < t->start_time) {
         ++tgt_idx;
+        candidates.clear();
       }
       if (tgt_idx == _target_log.size()) {
         // transfers to a device, but the device will never be active again.

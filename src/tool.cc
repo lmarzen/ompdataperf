@@ -131,7 +131,7 @@ static void on_ompt_callback_target_emi(ompt_target_t kind,
     // commit start timestamp
     s_sync_target_start_time = time_now;
     if (is_async) {
-      assert((target_task_data != nullptr) &&
+      assert((target_task_data != nullptr && target_task_data->value == 0) &&
              !s_async_target_start_times.contains(id));
       if (target_task_data != nullptr) {
         target_task_data->value = id;
