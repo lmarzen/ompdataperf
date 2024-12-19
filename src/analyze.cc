@@ -590,13 +590,21 @@ void print_potential_resource_savings(
   uint64_t pot_rt_calls = 0;
   for (auto it = round_trip_durations.rbegin();
        it != round_trip_durations.rend(); ++it) {
-    // we assume the first transfer to be unavoidable
+    // we assume the first transfer to be unavoidable only if it starts on the
+    // device. We do this because of what is most likely mistake to have been
+    // made is. In the scenario where the programmer mapping data to a device
+    // for read only use is common for them to accidentally send to back to the
+    // host using the default mappings. However if the programmer is sending
+    // back from the device then to the device it is common for them to not
+    // actually need it on the host, but just made a mapping mistake or had
+    // trouble with lifetimes but should have kept the intermediate result on
+    // the device.
     const std::vector<std::pair<const data_op_info_t *, const data_op_info_t *>>
         &info_list = it->second;
     pot_rt_calls += info_list.size();
     for (size_t i = 0; i < info_list.size(); ++i) {
-      if (i != 0) {
-        const data_op_info_t *tx_ptr = info_list[i].first;
+      const data_op_info_t *tx_ptr = info_list[i].first;
+      if (i != 0 || is_transfer_from_op(tx_ptr->optype)) {
         pot_unnecessary_ops.emplace(tx_ptr);
       }
       const data_op_info_t *rx_ptr = info_list[i].second;
