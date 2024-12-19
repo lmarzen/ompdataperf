@@ -15,7 +15,9 @@ endif
 
 BabelStream:
 	cmake -Bsrc/BabelStream/build -Hsrc/BabelStream/. -DCMAKE_CXX_COMPILER=clang++ -DMODEL=omp -DOFFLOAD=ON -DOFFLOAD_FLAGS='-fopenmp -fopenmp-targets=nvptx64' -DCMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+	cmake -Bsrc/BabelStream/build_syn -Hsrc/BabelStream/. -DCMAKE_CXX_COMPILER=clang++ -DMODEL=omp_syn -DOFFLOAD=ON -DOFFLOAD_FLAGS='-fopenmp -fopenmp-targets=nvptx64' -DCMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
 	cmake --build src/BabelStream/build -- -j
+	cmake --build src/BabelStream/build_syn -- -j
 
 bfs:
 	$(MAKE) -j -C src/bfs -f Makefile all DEBUG=$(DEBUG)
@@ -32,6 +34,7 @@ miniFE:
 
 minifmm:
 	$(MAKE) -j -C src/minifmm -f Makefile DEBUG=$(DEBUG)
+	$(MAKE) -j -C src/minifmm -f Makefile.syn DEBUG=$(DEBUG)
 
 nw:
 	$(MAKE) -j -C src/nw -f Makefile all DEBUG=$(DEBUG)
@@ -42,7 +45,9 @@ RSBench:
 
 TeaLeaf:
 	cmake -Bsrc/TeaLeaf/build -Hsrc/TeaLeaf/. -DMODEL=omp-target -DENABLE_MPI=OFF -DOFFLOAD=ON -DOFFLOAD_FLAGS="-fopenmp -fopenmp-targets=nvptx64" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+	cmake -Bsrc/TeaLeaf/build_syn -Hsrc/TeaLeaf/. -DMODEL=omp-target_syn -DENABLE_MPI=OFF -DOFFLOAD=ON -DOFFLOAD_FLAGS="-fopenmp -fopenmp-targets=nvptx64" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
 	cmake --build src/TeaLeaf/build -- -j
+	cmake --build src/TeaLeaf/build_syn -- -j
 
 XSBench:
 	$(MAKE) -j -C src/XSBench -f Makefile DEBUG=$(DEBUG)
@@ -50,6 +55,7 @@ XSBench:
 
 BabelStream_clean:
 	rm -rf src/BabelStream/build
+	rm -rf src/BabelStream/build_syn
 
 bfs_clean:
 	$(MAKE) -j -C src/bfs -f Makefile clean DEBUG=$(DEBUG)
@@ -76,6 +82,7 @@ RSBench_clean:
 
 TeaLeaf_clean:
 	rm -rf src/TeaLeaf/build
+	rm -rf src/TeaLeaf/build_syn
 
 XSBench_clean:
 	$(MAKE) -j -C src/XSBench -f Makefile clean DEBUG=$(DEBUG)

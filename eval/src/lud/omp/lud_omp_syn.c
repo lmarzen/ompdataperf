@@ -45,7 +45,7 @@ void lud_omp(float *a, int size)
     int offset, chunk_idx, size_inter, chunks_in_inter_row, chunks_per_inter;
 printf("%d: %p\n", size, a);
 #ifdef OMP_OFFLOAD
-#pragma omp target data map(to: size) map(a[0:size*size])
+#pragma omp target data map(a[0:size*size])
 #endif
 
 #ifdef OMP_OFFLOAD
@@ -64,9 +64,13 @@ printf("%d: %p\n", size, a);
         size_inter = size - offset -  BS;
         chunks_in_inter_row  = size_inter/BS;
         
+        #pragma omp target data map(alloc:size)
+	{}
+#pragma omp target update from(a[0:size*size])
+#pragma omp target update to(a[0:size*size])
         // calculate perimeter block matrices
         // 
-        #pragma omp target
+        #pragma omp target map(to: size)
         #pragma omp parallel for default(none) \
           private(chunk_idx) shared(size, chunks_per_inter, chunks_in_inter_row, offset, a) 
         for ( chunk_idx = 0; chunk_idx < chunks_in_inter_row; chunk_idx++)
@@ -116,12 +120,13 @@ printf("%d: %p\n", size, a);
             }
 
         }
-        
+#pragma omp target update from(a[0:size*size])
+#pragma omp target update to(a[0:size*size])
         // update interior block matrices
         //
         chunks_per_inter = chunks_in_inter_row*chunks_in_inter_row;
-
-        #pragma omp target
+#pragma omp target update to(a[0:size*size])
+        #pragma omp target map(to: size)
 #pragma omp parallel for schedule(auto) default(none) \
          private(chunk_idx ) shared(size, chunks_per_inter, chunks_in_inter_row, offset, a) 
         for  (chunk_idx =0; chunk_idx < chunks_per_inter; chunk_idx++)
@@ -158,10 +163,14 @@ printf("%d: %p\n", size, a);
             }
         }
     }
+#pragma omp target update from(a[0:size*size])
+#pragma omp target update to(a[0:size*size])
 
     lud_diagonal_omp(a, size, offset);
 #ifdef OMP_OFFLOAD
 }
 #endif
 
+#pragma omp target data map(to:a[0:size*size])
+{}
 }

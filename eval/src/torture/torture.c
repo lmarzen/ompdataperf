@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
 
   for (long long iter = 0; iter < num_iterations; ++iter) {
 
-    #pragma omp target data map(tofrom:a[0:allocation_size]) // duplicate (a), repeated alloc
+    #pragma omp target data map(tofrom:a[0:allocation_size]) // duplicate (a), repeated alloc, unused data transfer
     {
       #pragma omp target update to(a[0:allocation_size]) // duplicate (b), round-trip (a)
       #pragma omp target teams distribute parallel for
@@ -31,6 +31,10 @@ int main(int argc, char **argv) {
         a[i] += 1;
       }
     } // end map(tofrom:a[0:allocation_size]) // round-trip (b)
+    size_t i = iter % allocation_size; // choosing an index to avoid more repeated allocs
+    #pragma omp target data map(alloc:a[i:i+1]) // unused alloc
+    {
+    }
 
   }
 

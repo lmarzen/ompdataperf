@@ -9,7 +9,7 @@ else
 endif
 OFFLOAD_CC_FLAGS = -fopenmp-targets=nvptx64
 
-all: hotspot hotspot_offload 
+all: hotspot hotspot_offload  hotspot_offload_synthetic
 
 hotspot: hotspot_openmp.cpp Makefile 
 	$(CC) $(CC_FLAGS) hotspot_openmp.cpp -o hotspot 
@@ -17,5 +17,8 @@ hotspot: hotspot_openmp.cpp Makefile
 hotspot_offload: hotspot_openmp.cpp Makefile
 	$(CC) $(CC_FLAGS) $(OFFLOAD_CC_FLAGS) -DOMP_OFFLOAD hotspot_openmp.cpp -o hotspot_offload
 
+hotspot_offload_synthetic: hotspot_openmp_synthetic.cpp Makefile
+	$(CC) $(CC_FLAGS) $(OFFLOAD_CC_FLAGS) -DOMP_OFFLOAD hotspot_openmp_synthetic.cpp -o hotspot_offload_synthetic
+
 clean:
-	rm -f hotspot hotspot_offload *.out
+	rm -f hotspot hotspot_offload hotspot_offload_synthetic *.out

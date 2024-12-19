@@ -233,9 +233,9 @@ if ("${MODEL}" STREQUAL "omp-target")
     set(ALTERNATIVE_BIN_NAME "omp-target-tealeaf")
 endif ()
 
-if ("${MODEL}" STREQUAL "omp-target-fix")
-    set(MODEL omp-fix)
-    set(ALTERNATIVE_BIN_NAME "omp-target-tealeaf-fix")
+if ("${MODEL}" STREQUAL "omp-target_syn")
+    set(MODEL omp_syn)
+    set(ALTERNATIVE_BIN_NAME "omp-target-tealeaf_syn")
 endif ()
 
 set(MODEL_SRC
@@ -253,7 +253,7 @@ set(MODEL_SRC
 
 register_model(serial USE_SERIAL ${MODEL_SRC})
 register_model(omp USE_OMP ${MODEL_SRC} diffuse_overload.cpp)
-register_model(omp-fix USE_OMP ${MODEL_SRC} diffuse_overload.cpp)
+register_model(omp_syn USE_OMP ${MODEL_SRC} diffuse_overload.cpp)
 register_model(kokkos USE_KOKKOS ${MODEL_SRC})
 register_model(cuda USE_CUDA ${MODEL_SRC})
 register_model(hip USE_HIP ${MODEL_SRC})
@@ -265,8 +265,8 @@ if ("${MODEL}" STREQUAL omp-target)
     set(BIN_NAME omp-target-tealeaf)
 endif ()
 
-if ("${MODEL}" STREQUAL omp-target-fix)
-    set(BIN_NAME omp-target-tealeaf-fix)
+if ("${MODEL}" STREQUAL omp-target_syn)
+    set(BIN_NAME omp-target-tealeaf_syn)
 endif ()
 
 

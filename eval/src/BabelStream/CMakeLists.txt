@@ -147,6 +147,7 @@ include(cmake/register_models.cmake)
 
 # register out models <model_name> <preprocessor_def_name> <source files...>
 register_model(omp OMP OMPStream.cpp)
+register_model(omp_syn OMP OMPStream.cpp)
 register_model(ocl OCL OCLStream.cpp)
 register_model(std-data STD_DATA STDDataStream.cpp)
 register_model(std-indices STD_INDICES STDIndicesStream.cpp)

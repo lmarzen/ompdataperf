@@ -9,7 +9,7 @@ else
   DEBUG := 0
 endif
 
-all: needle needle_offload
+all: needle needle_offload needle_offload_syn
 
 needle: 
 	$(CC) $(CC_FLAGS) needle.cpp -o needle 
@@ -17,5 +17,8 @@ needle:
 needle_offload:
 	$(CC) $(CC_FLAGS) $(OFFLOAD_CC_FLAGS) -DOMP_OFFLOAD needle.cpp -o needle_offload
 
+needle_offload_syn:
+	$(CC) $(CC_FLAGS) $(OFFLOAD_CC_FLAGS) -DOMP_OFFLOAD needle_syn.cpp -o needle_offload_syn
+
 clean:
-	rm -f needle needle_offload result.txt
+	rm -f needle needle_offload needle_offload_syn result.txt

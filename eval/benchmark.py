@@ -28,6 +28,17 @@ benchmarks = [
         "unit": "s",
     },
     {
+        "name": "babelstream (syn)",
+        "directory": f"{eval_dir}/src/BabelStream",
+        "commands": [
+            "./build_syn/omp_syn-stream -n 100 -s 1048576",
+            "./build_syn/omp_syn-stream -n 500 -s 33554432",
+            "./build_syn/omp_syn-stream -n 2500 -s 33554432",
+        ],
+        "regex": r"",
+        "unit": "s",
+    },
+    {
         "name": "bfs",
         "directory": f"{eval_dir}/src/bfs",
         "commands": [
@@ -61,12 +72,34 @@ benchmarks = [
         "unit": "s",
     },
     {
+        "name": "hotspot (syn)",
+        "directory": f"{eval_dir}/src/hotspot",
+        "commands": [
+            "./hotspot_offload_synthetic 64 64 2 4 ../../data/hotspot/temp_64 ../../data/hotspot/power_64 output.out",
+            "./hotspot_offload_synthetic 512 512 2 4 ../../data/hotspot/temp_512 ../../data/hotspot/power_512 output.out",
+            "./hotspot_offload_synthetic 1024 1024 2 4 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 output.out",
+        ],
+        "regex": r"Total time:\s*([\d.]+)",
+        "unit": "s",
+    },
+    {
         "name": "lud",
         "directory": f"{eval_dir}/src/lud",
         "commands": [
             "./omp/lud_omp_offload -s 2000",
             "./omp/lud_omp_offload -s 4000",
             "./omp/lud_omp_offload -s 8000",
+        ],
+        "regex": r"Time consumed\(ms\):\s*([\d.]+)",
+        "unit": "ms",
+    },
+    {
+        "name": "lud (syn)",
+        "directory": f"{eval_dir}/src/lud",
+        "commands": [
+            "./omp/lud_omp_offload_syn -s 2000",
+            "./omp/lud_omp_offload_syn -s 4000",
+            "./omp/lud_omp_offload_syn -s 8000",
         ],
         "regex": r"Time consumed\(ms\):\s*([\d.]+)",
         "unit": "ms",
@@ -105,12 +138,34 @@ benchmarks = [
         "unit": "s",
     },
     {
+        "name": "minifmm (syn)",
+        "directory": f"{eval_dir}/src/minifmm",
+        "commands": [
+            "./fmm.omptarget_syn -n 100",
+            "./fmm.omptarget_syn -n 1000",
+            "./fmm.omptarget_syn -n 10000",
+        ],
+        "regex": r"Total Time \(s\)\s*([\d.]+)",
+        "unit": "s",
+    },
+    {
         "name": "nw",
         "directory": f"{eval_dir}/src/nw",
         "commands": [
             "./needle_offload 512 10 2",
             "./needle_offload 2048 10 2",
             "./needle_offload 8192 10 2",
+        ],
+        "regex": r"Total time:\s*([\d.]+)",
+        "unit": "s",
+    },
+    {
+        "name": "nw (syn)",
+        "directory": f"{eval_dir}/src/nw",
+        "commands": [
+            "./needle_offload_syn 512 10 2",
+            "./needle_offload_syn 2048 10 2",
+            "./needle_offload_syn 8192 10 2",
         ],
         "regex": r"Total time:\s*([\d.]+)",
         "unit": "s",
@@ -144,6 +199,17 @@ benchmarks = [
             "./build/omp-target-tealeaf --file Benchmarks/tea_bm_1.in",
             "./build/omp-target-tealeaf --file Benchmarks/tea_bm_2.in",
             "./build/omp-target-tealeaf --file Benchmarks/tea_bm_4.in",
+        ],
+        "regex": r" Wallclock:\s*([\d.]+)s",
+        "unit": "s",
+    },
+    {
+        "name": "tealeaf (syn)",
+        "directory": f"{eval_dir}/src/TeaLeaf",
+        "commands": [
+            "./build_syn/omp-target-tealeaf_syn --file Benchmarks/tea_bm_1.in",
+            "./build_syn/omp-target-tealeaf_syn --file Benchmarks/tea_bm_2.in",
+            "./build_syn/omp-target-tealeaf_syn --file Benchmarks/tea_bm_4.in",
         ],
         "regex": r" Wallclock:\s*([\d.]+)s",
         "unit": "s",
@@ -331,10 +397,9 @@ def run_benchmark(directory, command, regexes, unit, profiler_cmd, warmup_cnt, r
                     std_dev = stdev(times[j])
                     standard_error = std_dev / math.sqrt(i - warmup_cnt)
                     margin_of_error = z_score * standard_error
-                    tolerance = mean_time * 0.01
                     if margin_of_error < confidence:
                         print(f"Mean execution time: {mean_time:.6f} seconds")
-                        print(f"95% Confidence Interval: [{mean_time - margin_of_error:.6f}, {mean_time + margin_of_error:.6f}]")
+                        print(f"{confidence * 100.0}% Confidence Interval: [{mean_time - margin_of_error:.6f}, {mean_time + margin_of_error:.6f}]")
                         conf_reached = conf_reached + 1
             if conf_reached == len(regexes):
                 break
@@ -375,8 +440,8 @@ def build(CMAKE_BUILD_TYPE='Release',
     return True
  
 def benchmark_runtime_overhead():
-    warmup_runs = 10
-    repetitions = 60
+    warmup_runs = 5
+    repetitions = 30
     confidence = 0.00
     success = build()
     if (not success):
@@ -504,7 +569,7 @@ def benchmark_hash_overhead():
 
         for benchmark in benchmarks:
             name = benchmark["name"]
-            if "(fix)" in name:
+            if "(fix)" in name or "(syn)" in name:
                 continue
             directory = benchmark["directory"]
             regex = [r"avg hash rate\s*([\d.]+)(GB/s)"]
@@ -534,7 +599,7 @@ def benchmark_hash_overhead():
         
         for benchmark in benchmarks:
             name = benchmark["name"]
-            if "(fix)" in name:
+            if "(fix)" in name or "(syn)" in name:
                 continue
             row = f"{name:<15}\t"
             for hash_fn in hashes:
@@ -638,7 +703,7 @@ def benchmark_hash_collisions():
         
         for benchmark in benchmarks:
             name = benchmark["name"]
-            if "(fix)" in name:
+            if "(fix)" in name or "(syn)" in name:
                 continue
             row = f"{name:<15}\t"
             for hash_fn in hashes:
@@ -658,24 +723,30 @@ def benchmark_prediction_accuracy():
     regex = ["    time             \s+([\d.]+)(s|ms|µs|ns)"]
     for i, b in enumerate(benchmarks):
         name = benchmarks[i]["name"]
-        if "(fix)" not in name:
+        if not "(fix)" in name and not "(syn)" in name:
             continue
+        slow_idx = i
+        fast_idx = i
+        if "(fix)" in name:
+            slow_idx = i - 1
+        elif "(syn)" in name:
+            fast_idx = i - 1
         # assume non-fix version directly preceeds fix version
-        directory = benchmarks[i]["directory"]
-        fix_directory = benchmarks[i-1]["directory"]
+        directory = benchmarks[slow_idx]["directory"]
+        fix_directory = benchmarks[fast_idx]["directory"]
 
 
-        small_times = run_benchmark(directory, benchmarks[i-1]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
-        medium_times = run_benchmark(directory, benchmarks[i-1]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
-        large_times = run_benchmark(directory, benchmarks[i-1]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
+        small_times = run_benchmark(directory, benchmarks[slow_idx]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
+        medium_times = run_benchmark(directory, benchmarks[slow_idx]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
+        large_times = run_benchmark(directory, benchmarks[slow_idx]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
 
-        small_times_fix = run_benchmark(fix_directory, benchmarks[i]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
-        medium_times_fix = run_benchmark(fix_directory, benchmarks[i]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
-        large_times_fix = run_benchmark(fix_directory, benchmarks[i]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
+        small_times_fix = run_benchmark(fix_directory, benchmarks[fast_idx]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
+        medium_times_fix = run_benchmark(fix_directory, benchmarks[fast_idx]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
+        large_times_fix = run_benchmark(fix_directory, benchmarks[fast_idx]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
     
-        small_times_prof = run_benchmark(directory, benchmarks[i-1]["commands"][0], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
-        medium_times_prof = run_benchmark(directory, benchmarks[i-1]["commands"][1], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
-        large_times_prof = run_benchmark(directory, benchmarks[i-1]["commands"][2], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        small_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][0], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        medium_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][1], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        large_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][2], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
     
         small_actual = mean(small_times_fix[0])
         medium_actual = mean(medium_times_fix[0])
@@ -695,6 +766,58 @@ def benchmark_prediction_accuracy():
     
     # Print results in a table format
     print(f"RESULTS - Execution Time Speedup Prediction Accuracy - (%)")
+    header = (
+        f"{'Program Name':<15}\t{'Small':<15}\t"
+        f"{'Medium':<15}\t"
+        f"{'Large':<15}"
+    )
+    separator = "-" * len(header)
+    print(header)
+    #print(separator)
+    
+    for result in results:
+        row = (
+            f"{result['Program Name']:<15}\t"
+            f"{result['Small']:<15.6f}\t"
+            f"{result['Medium']:<15.6f}\t"
+            f"{result['Large']:<15.6f}"
+        )
+        print(row)
+
+def benchmark_predicted_time_savings():
+    warmup_runs = 0
+    repetitions = 1
+    confidence = 0.0
+    success = build()
+    if (not success):
+        return
+    # Collect execution times and compute averages
+    results = []
+    regex = ["    time             \s+([\d.]+)(s|ms|µs|ns)"]
+    for i, b in enumerate(benchmarks):
+        name = benchmarks[i]["name"]
+        if not "(fix)" in name and not "(syn)" in name:
+            continue
+        slow_idx = i
+        if "(fix)" in name:
+            slow_idx = i - 1
+        directory = benchmarks[slow_idx]["directory"]
+
+        small_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][0], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        medium_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][1], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        large_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][2], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+    
+        results.append({
+            "Program Name": name,
+            "Small": mean(small_times_prof[0]),
+            "Medium": mean(medium_times_prof[0]),
+            "Large": mean(large_times_prof[0]),
+        })
+
+        print(f"{name}: {mean(small_times_prof[0])}s {mean(medium_times_prof[0])}s {mean(large_times_prof[0])}s")
+    
+    # Print results in a table format
+    print(f"RESULTS - Predicted Execution Time Savings - (s)")
     header = (
         f"{'Program Name':<15}\t{'Small':<15}\t"
         f"{'Medium':<15}\t"
@@ -893,9 +1016,10 @@ def benchmark_runtime_overhead_full():
 #benchmark_runtime_overhead()
 #benchmark_runtime_overhead_full()
 #benchmark_prediction_accuracy()
+benchmark_predicted_time_savings()
 #benchmark_identify_issues()
 #benchmark_hash_overhead()
-benchmark_hash_overhead_torture()
+#benchmark_hash_overhead_torture()
 #benchmark_runtime_overhead_torture()
 #benchmark_transfer_rate_torture()
 #benchmark_hash_collisions()
