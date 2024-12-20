@@ -190,10 +190,9 @@ void dtt(FMM<T>* fmm)
       m2l(fmm, target, source);
     }
   }
+#pragma omp target exit data map(from: ax[:np], ay[:np], az[:np], aw[:np])
   compute_timer.stop();
   printf("    %-16s %12.8f\n", "M2L Time (s) ", compute_timer.elapsed());
-
-#pragma omp target exit data map(from: ax[:np], ay[:np], az[:np], aw[:np])
 }
 
 
