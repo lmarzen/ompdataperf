@@ -1,3 +1,4 @@
 lud_omp
 lud_omp_offload
+lud_omp_offload_syn
 *.o

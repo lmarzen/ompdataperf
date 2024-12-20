@@ -30,6 +30,7 @@ KokkosCore_config.*
 Makefile
 
 build/
+build_syn/
 cmake-build-*/
 CMakeFiles/
 .idea/

@@ -166,9 +166,15 @@ void nw_optimized(int *input_itemsets, int *output_itemsets, int *referrence,
         }
     }
     #pragma omp target update to(input_itemsets[0:transfer_size])
+#pragma omp target data map(alloc:referrence[0:transfer_size])
+    {
+    #pragma omp target update to(referrence[0:transfer_size])
         
     printf("Processing bottom-right matrix\n");
 
+    #pragma omp target update to(referrence[0:transfer_size])
+    #pragma omp target update to(referrence[0:transfer_size])
+    }
 #ifdef OMP_OFFLOAD
     #pragma omp target update to(input_itemsets[0:transfer_size])
     #pragma omp target map(to: max_cols, penalty, referrence[0:transfer_size])
