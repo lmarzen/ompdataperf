@@ -116,7 +116,7 @@ void dtt(FMM<T>* fmm)
                                   m2l_deps_offsets[:m2l_num_nodes],\
                                   m2l_deps_sizes[:m2l_num_nodes])
 
-#pragma omp target enter data map(to: nodes[:nn], x[:np], y[:np], z[:np], \
+#pragma omp target data map(to: nodes[:nn], x[:np], y[:np], z[:np], \
                                        w[:np], ax[:np], ay[:np], az[:np],  \
                                        aw[:np], mm[:nm * nn], ml[:nm * nn],\
 		                  p2p_nodes[:p2p_num_nodes],\
@@ -127,6 +127,20 @@ void dtt(FMM<T>* fmm)
                                   m2l_deps_array[:m2l_deps_tot],\
                                   m2l_deps_offsets[:m2l_num_nodes],\
                                   m2l_deps_sizes[:m2l_num_nodes])
+{}
+
+#pragma omp target data map(tofrom: nodes[:nn], x[:np], y[:np], z[:np], \
+                                       w[:np], ax[:np], ay[:np], az[:np],  \
+                                       aw[:np], mm[:nm * nn], ml[:nm * nn],\
+		                  p2p_nodes[:p2p_num_nodes],\
+                                  p2p_deps_array[:p2p_deps_tot],\
+                                  p2p_deps_offsets[:p2p_num_nodes],\
+                                  p2p_deps_sizes[:p2p_num_nodes],\
+				  m2l_nodes[:m2l_num_nodes],\
+                                  m2l_deps_array[:m2l_deps_tot],\
+                                  m2l_deps_offsets[:m2l_num_nodes],\
+                                  m2l_deps_sizes[:m2l_num_nodes])
+{
 
 #pragma omp target teams distribute 
   for (size_t ni = 0; ni < p2p_num_nodes; ++ni) {
@@ -213,10 +227,36 @@ void dtt(FMM<T>* fmm)
       m2l(fmm, target, source);
     }
   }
+
+
+}
+#pragma omp target data map(to: nodes[:nn], x[:np], y[:np], z[:np], \
+                                       w[:np], ax[:np], ay[:np], az[:np],  \
+                                       aw[:np], mm[:nm * nn], ml[:nm * nn],\
+		                  p2p_nodes[:p2p_num_nodes],\
+                                  p2p_deps_array[:p2p_deps_tot],\
+                                  p2p_deps_offsets[:p2p_num_nodes],\
+                                  p2p_deps_sizes[:p2p_num_nodes],\
+				  m2l_nodes[:m2l_num_nodes],\
+                                  m2l_deps_array[:m2l_deps_tot],\
+                                  m2l_deps_offsets[:m2l_num_nodes],\
+                                  m2l_deps_sizes[:m2l_num_nodes])
+{}
+
+#pragma omp target data map(to: nodes[:nn], x[:np], y[:np], z[:np], \
+                                       w[:np], ax[:np], ay[:np], az[:np],  \
+                                       aw[:np], mm[:nm * nn], ml[:nm * nn],\
+		                  p2p_nodes[:p2p_num_nodes],\
+                                  p2p_deps_array[:p2p_deps_tot],\
+                                  p2p_deps_offsets[:p2p_num_nodes],\
+                                  p2p_deps_sizes[:p2p_num_nodes],\
+				  m2l_nodes[:m2l_num_nodes],\
+                                  m2l_deps_array[:m2l_deps_tot],\
+                                  m2l_deps_offsets[:m2l_num_nodes],\
+                                  m2l_deps_sizes[:m2l_num_nodes])
+{}
   compute_timer.stop();
   printf("    %-16s %12.8f\n", "M2L Time (s) ", compute_timer.elapsed());
-
-#pragma omp target exit data map(from: ax[:np], ay[:np], az[:np], aw[:np])
 }
 
 
