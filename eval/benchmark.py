@@ -415,7 +415,8 @@ def build(CMAKE_BUILD_TYPE='Release',
           ENABLE_COLLISION_CHECKING='OFF',
           MEASURE_HASHING_OVERHEAD='OFF',
           HASH_FUNCTION='t1ha0_ia32aes_avx2',
-          PRINT_TRANSFER_RATE='OFF'):
+          PRINT_TRANSFER_RATE='OFF',
+          PRINT_SPACE_OVERHEAD='OFF'):
     current_dir = os.getcwd()
     os.chdir(build_dir)
     cmake_command = ["cmake", "..", 
@@ -424,6 +425,7 @@ def build(CMAKE_BUILD_TYPE='Release',
                      f"-DMEASURE_HASHING_OVERHEAD={MEASURE_HASHING_OVERHEAD}", 
                      f"-DHASH_FUNCTION=\'{HASH_FUNCTION}\'",
                      f"-DPRINT_TRANSFER_RATE={PRINT_TRANSFER_RATE}", 
+                     f"-DPRINT_SPACE_OVERHEAD={PRINT_SPACE_OVERHEAD}", 
                      ]
     make_command = ["make", "-j"]
 
@@ -1013,13 +1015,61 @@ def benchmark_runtime_overhead_full():
         )
         print(row)
 
+def benchmark_space_overhead():
+    warmup_runs = 0
+    repetitions = 1
+    confidence = 0.95
+    # Collect execution times and compute averages
+    results = defaultdict(lambda: defaultdict(lambda: None))
+    success = build(PRINT_SPACE_OVERHEAD='ON')
+    if (not success):
+        return
+
+    for benchmark in benchmarks:
+        name = benchmark["name"]
+        if "(fix)" in name or "(syn)" in name:
+            continue
+        directory = benchmark["directory"]
+        regex = [r"  space overhead \(B\)\s*([\d.]+)"]
+        unit = ""
+    
+        small_times_prof = run_benchmark(directory, benchmark["commands"][0], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+        medium_times_prof = run_benchmark(directory, benchmark["commands"][1], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+        large_times_prof = run_benchmark(directory, benchmark["commands"][2], regex, unit, profiler_command, warmup_runs, repetitions, confidence)
+        
+        results["small"][name] = mean(small_times_prof[0])
+        results["medium"][name] = mean(medium_times_prof[0])
+        results["large"][name] = mean(large_times_prof[0])
+
+        print(f"  result (small)  : {results['small'][name]:<20.0f}")
+        print(f"  result (medium) : {results['medium'][name]:<20.0f}")
+        print(f"  result (large)  : {results['large'][name]:<20.0f}")
+    
+    for size in ["small", "medium", "large"]:
+        print(f"RESULTS - Space Overhead - ({size}) - B")
+        # Print results in a table format
+        header = f"{'Program Name':<15}\t"
+        header += f"{'Bytes':<20}\t"
+        separator = "-" * len(header)
+        print(header)
+        #print(separator)
+        
+        for benchmark in benchmarks:
+            name = benchmark["name"]
+            if "(fix)" in name or "(syn)" in name:
+                continue
+            row = f"{name:<15}\t"
+            row += f"{results[size][name]:<20.0f}\t"
+        print()
+
 #benchmark_runtime_overhead()
 #benchmark_runtime_overhead_full()
 #benchmark_prediction_accuracy()
-benchmark_predicted_time_savings()
+# benchmark_predicted_time_savings()
 #benchmark_identify_issues()
 #benchmark_hash_overhead()
 #benchmark_hash_overhead_torture()
 #benchmark_runtime_overhead_torture()
 #benchmark_transfer_rate_torture()
 #benchmark_hash_collisions()
+benchmark_space_overhead()

@@ -306,6 +306,12 @@ void print_hash_overhead_summary(
     std::chrono::duration<uint64_t, std::nano> overhead);
 #endif // MEASURE_HASHING_OVERHEAD
 
+#ifdef PRINT_SPACE_OVERHEAD
+void print_space_overhead_summary(
+    const std::vector<target_info_t> *target_log_ptr,
+    const std::vector<data_op_info_t> *data_op_log_ptr);
+#endif // PRINT_SPACE_OVERHEAD
+
 #ifdef PRINT_TRANSFER_RATE
 void print_transfer_rate_summary(
     const std::vector<data_op_info_t> *data_op_log_ptr);

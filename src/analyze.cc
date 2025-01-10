@@ -1412,6 +1412,23 @@ void print_hash_overhead_summary(
 }
 #endif // MEASURE_HASHING_OVERHEAD
 
+#ifdef PRINT_SPACE_OVERHEAD
+void print_space_overhead_summary(
+    const std::vector<target_info_t> *target_log_ptr,
+    const std::vector<data_op_info_t> *data_op_log_ptr) {
+  const size_t target_log_size = target_log_ptr->size() * sizeof(target_info_t);
+  const size_t data_op_log_size =
+      data_op_log_ptr->size() * sizeof(data_op_info_t);
+  const size_t bytes = target_log_size + data_op_log_size;
+
+  // clang-format off
+  std::cerr << "\n  space overhead (B)   "
+            << format_uint(bytes, f_w) << "\n";
+  // clang-format on
+  return;
+}
+#endif // PRINT_SPACE_OVERHEAD
+
 #ifdef PRINT_TRANSFER_RATE
 void print_transfer_rate_summary(
     const std::vector<data_op_info_t> *data_op_log_ptr) {
