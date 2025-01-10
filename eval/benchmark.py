@@ -1045,22 +1045,23 @@ def benchmark_space_overhead():
         print(f"  result (medium) : {results['medium'][name]:<20.0f}")
         print(f"  result (large)  : {results['large'][name]:<20.0f}")
     
+    print(f"RESULTS - Space Overhead - B")
+    header = f"{'Program Name':<15}\t"
     for size in ["small", "medium", "large"]:
-        print(f"RESULTS - Space Overhead - ({size}) - B")
-        # Print results in a table format
-        header = f"{'Program Name':<15}\t"
-        header += f"{'Bytes':<20}\t"
-        separator = "-" * len(header)
-        print(header)
-        #print(separator)
+        header += f"{size}\t"
+    separator = "-" * len(header)
+    print(header)
+    #print(separator)
         
-        for benchmark in benchmarks:
-            name = benchmark["name"]
-            if "(fix)" in name or "(syn)" in name:
-                continue
-            row = f"{name:<15}\t"
+    for benchmark in benchmarks:
+        name = benchmark["name"]
+        if "(fix)" in name or "(syn)" in name:
+            continue
+        row = f"{name:<15}\t"
+        for size in ["small", "medium", "large"]:
             row += f"{results[size][name]:<20.0f}\t"
-        print()
+        print(row)
+    print()
 
 #benchmark_runtime_overhead()
 #benchmark_runtime_overhead_full()
