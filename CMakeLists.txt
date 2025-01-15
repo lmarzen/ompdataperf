@@ -46,7 +46,7 @@ else()
 endif()
 
 option(PRINT_SPACE_OVERHEAD "Prints memory overhead in summary." OFF)
-if(PRINT_HASHING_OVERHEAD)
+if(PRINT_SPACE_OVERHEAD)
   message(STATUS "Printing space overhead")
   add_compile_definitions(PRINT_SPACE_OVERHEAD)
 else()
