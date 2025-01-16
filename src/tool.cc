@@ -374,6 +374,9 @@ void ompt_finalize(ompt_data_t *data) {
 #ifdef MEASURE_HASHING_OVERHEAD
   print_hash_overhead_summary(s_data_op_log_ptr, s_hash_overhead);
 #endif
+#ifdef PRINT_SPACE_OVERHEAD
+print_space_overhead_summary(s_target_log_ptr, s_data_op_log_ptr);
+#endif
 #ifdef PRINT_TRANSFER_RATE
   print_transfer_rate_summary(s_data_op_log_ptr);
 #endif

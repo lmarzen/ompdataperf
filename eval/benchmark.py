@@ -15,6 +15,30 @@ build_dir = f"{eval_dir}/../build"
 profiler_command = f"{build_dir}/ompdataperf"
 comparison_prof_command = "nsys profile"
 
+benchmarks2 = [
+    {
+        "name": "hotspot",
+        "directory": f"{eval_dir}/src/hotspot",
+        "commands": [
+            "./hotspot_offload 64 64 2 4 ../../data/hotspot/temp_64 ../../data/hotspot/power_64 output.out",
+            "./hotspot_offload 512 512 2 4 ../../data/hotspot/temp_512 ../../data/hotspot/power_512 output.out",
+            "./hotspot_offload 1024 1024 2 4 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 output.out",
+        ],
+        "regex": r"Total time:\s*([\d.]+)",
+        "unit": "s",
+    },
+    {
+        "name": "hotspot (syn)",
+        "directory": f"{eval_dir}/src/hotspot",
+        "commands": [
+            "./hotspot_offload_synthetic 64 64 2 4 ../../data/hotspot/temp_64 ../../data/hotspot/power_64 output.out",
+            "./hotspot_offload_synthetic 512 512 2 4 ../../data/hotspot/temp_512 ../../data/hotspot/power_512 output.out",
+            "./hotspot_offload_synthetic 1024 1024 2 4 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 output.out",
+        ],
+        "regex": r"Total time:\s*([\d.]+)",
+        "unit": "s",
+    },
+]
 benchmarks = [
     {
         "name": "babelstream",
@@ -442,7 +466,7 @@ def build(CMAKE_BUILD_TYPE='Release',
     return True
  
 def benchmark_runtime_overhead():
-    warmup_runs = 5
+    warmup_runs = 10
     repetitions = 30
     confidence = 0.00
     success = build()
@@ -450,7 +474,7 @@ def benchmark_runtime_overhead():
         return
     # Collect execution times and compute averages
     results = []
-    for benchmark in benchmarks:
+    for benchmark in benchmarks2:
         name = benchmark["name"]
         directory = benchmark["directory"]
         regex = [benchmark["regex"]]
@@ -714,7 +738,7 @@ def benchmark_hash_collisions():
         print()
 
 def benchmark_prediction_accuracy():
-    warmup_runs = 3
+    warmup_runs = 10
     repetitions = 30
     confidence = 0.95
     success = build()
@@ -723,8 +747,8 @@ def benchmark_prediction_accuracy():
     # Collect execution times and compute averages
     results = []
     regex = ["    time             \s+([\d.]+)(s|ms|µs|ns)"]
-    for i, b in enumerate(benchmarks):
-        name = benchmarks[i]["name"]
+    for i, b in enumerate(benchmarks2):
+        name = benchmarks2[i]["name"]
         if not "(fix)" in name and not "(syn)" in name:
             continue
         slow_idx = i
@@ -734,21 +758,21 @@ def benchmark_prediction_accuracy():
         elif "(syn)" in name:
             fast_idx = i - 1
         # assume non-fix version directly preceeds fix version
-        directory = benchmarks[slow_idx]["directory"]
-        fix_directory = benchmarks[fast_idx]["directory"]
+        directory = benchmarks2[slow_idx]["directory"]
+        fix_directory = benchmarks2[fast_idx]["directory"]
 
 
-        small_times = run_benchmark(directory, benchmarks[slow_idx]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
-        medium_times = run_benchmark(directory, benchmarks[slow_idx]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
-        large_times = run_benchmark(directory, benchmarks[slow_idx]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
+        small_times = run_benchmark(directory, benchmarks2[slow_idx]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
+        medium_times = run_benchmark(directory, benchmarks2[slow_idx]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
+        large_times = run_benchmark(directory, benchmarks2[slow_idx]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
 
-        small_times_fix = run_benchmark(fix_directory, benchmarks[fast_idx]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
-        medium_times_fix = run_benchmark(fix_directory, benchmarks[fast_idx]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
-        large_times_fix = run_benchmark(fix_directory, benchmarks[fast_idx]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
+        small_times_fix = run_benchmark(fix_directory, benchmarks2[fast_idx]["commands"][0], [""], "s", "", warmup_runs, repetitions, confidence)
+        medium_times_fix = run_benchmark(fix_directory, benchmarks2[fast_idx]["commands"][1], [""], "s", "", warmup_runs, repetitions, confidence)
+        large_times_fix = run_benchmark(fix_directory, benchmarks2[fast_idx]["commands"][2], [""], "s", "", warmup_runs, repetitions, confidence)
     
-        small_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][0], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
-        medium_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][1], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
-        large_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][2], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        small_times_prof = run_benchmark(directory, benchmarks2[slow_idx]["commands"][0], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        medium_times_prof = run_benchmark(directory, benchmarks2[slow_idx]["commands"][1], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        large_times_prof = run_benchmark(directory, benchmarks2[slow_idx]["commands"][2], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
     
         small_actual = mean(small_times_fix[0])
         medium_actual = mean(medium_times_fix[0])
@@ -787,8 +811,8 @@ def benchmark_prediction_accuracy():
         print(row)
 
 def benchmark_predicted_time_savings():
-    warmup_runs = 0
-    repetitions = 1
+    warmup_runs = 10
+    repetitions = 30
     confidence = 0.0
     success = build()
     if (not success):
@@ -796,18 +820,18 @@ def benchmark_predicted_time_savings():
     # Collect execution times and compute averages
     results = []
     regex = ["    time             \s+([\d.]+)(s|ms|µs|ns)"]
-    for i, b in enumerate(benchmarks):
-        name = benchmarks[i]["name"]
+    for i, b in enumerate(benchmarks2):
+        name = benchmarks2[i]["name"]
         if not "(fix)" in name and not "(syn)" in name:
             continue
         slow_idx = i
         if "(fix)" in name:
             slow_idx = i - 1
-        directory = benchmarks[slow_idx]["directory"]
+        directory = benchmarks2[slow_idx]["directory"]
 
-        small_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][0], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
-        medium_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][1], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
-        large_times_prof = run_benchmark(directory, benchmarks[slow_idx]["commands"][2], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        small_times_prof = run_benchmark(directory, benchmarks2[slow_idx]["commands"][0], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        medium_times_prof = run_benchmark(directory, benchmarks2[slow_idx]["commands"][1], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
+        large_times_prof = run_benchmark(directory, benchmarks2[slow_idx]["commands"][2], regex, "auto", profiler_command, warmup_runs, repetitions, confidence)
     
         results.append({
             "Program Name": name,
@@ -849,8 +873,11 @@ def benchmark_identify_issues():
     results = []
     regex = ["([\d.]+) potential duplicate data transfer\(s\)",
              "([\d.]+) potential round trip data transfer\(s\)",
-             "([\d.]+) potential repeated device memory allocation\(s\)"]
-    for benchmark in benchmarks:
+             "([\d.]+) potential repeated device memory allocation\(s\)",
+             "([\d.]+) potential unused device memory allocation\(s\)",
+             "([\d.]+) potential unused data transfer\(s\)",
+             ]
+    for benchmark in benchmarks2:
         name = benchmark["name"]
         # assume non-fix version directly preceeds fix version
         directory = benchmark["directory"]
@@ -864,12 +891,18 @@ def benchmark_identify_issues():
             "Small (dd)": int(mean(small_times_prof[0])),
             "Small (rt)": int(mean(small_times_prof[1])),
             "Small (ad)": int(mean(small_times_prof[2])),
+            "Small (ua)": int(mean(small_times_prof[3])),
+            "Small (ut)": int(mean(small_times_prof[4])),
             "Medium (dd)": int(mean(medium_times_prof[0])),
             "Medium (rt)": int(mean(medium_times_prof[1])),
             "Medium (ad)": int(mean(medium_times_prof[2])),
+            "Medium (ua)": int(mean(medium_times_prof[3])),
+            "Medium (ut)": int(mean(medium_times_prof[4])),
             "Large (dd)": int(mean(large_times_prof[0])),
             "Large (rt)": int(mean(large_times_prof[1])),
             "Large (ad)": int(mean(large_times_prof[2])),
+            "Large (ua)": int(mean(large_times_prof[3])),
+            "Large (ut)": int(mean(large_times_prof[4])),
         })
     
     # Print results in a table format
@@ -879,12 +912,18 @@ def benchmark_identify_issues():
         f"{'Small (dd)':<15}\t"
         f"{'Small (rt)':<15}\t"
         f"{'Small (ad)':<15}\t"
+        f"{'Small (ua)':<15}\t"
+        f"{'Small (ut)':<15}\t"
         f"{'Medium (dd)':<15}\t"
         f"{'Medium (rt)':<15}\t"
         f"{'Medium (ad)':<15}\t"
+        f"{'Medium (ua)':<15}\t"
+        f"{'Medium (ut)':<15}\t"
         f"{'Large (dd)':<15}\t"
         f"{'Large (rt)':<15}\t"
         f"{'Large (ad)':<15}"
+        f"{'Large (ua)':<15}"
+        f"{'Large (ut)':<15}"
     )
     separator = "-" * len(header)
     print(header)
@@ -896,12 +935,18 @@ def benchmark_identify_issues():
             f"{result['Small (dd)']:<15d}\t"
             f"{result['Small (rt)']:<15d}\t"
             f"{result['Small (ad)']:<15d}\t"
+            f"{result['Small (ua)']:<15d}\t"
+            f"{result['Small (ut)']:<15d}\t"
             f"{result['Medium (dd)']:<15d}\t"
             f"{result['Medium (rt)']:<15d}\t"
             f"{result['Medium (ad)']:<15d}\t"
+            f"{result['Medium (ua)']:<15d}\t"
+            f"{result['Medium (ut)']:<15d}\t"
             f"{result['Large (dd)']:<15d}\t"
             f"{result['Large (rt)']:<15d}\t"
             f"{result['Large (ad)']:<15d}"
+            f"{result['Large (ua)']:<15d}"
+            f"{result['Large (ut)']:<15d}"
         )
         print(row)
 
@@ -950,8 +995,8 @@ def benchmark_transfer_rate_torture():
 
 
 def benchmark_runtime_overhead_full():
-    warmup_runs = 10
-    repetitions = 30
+    warmup_runs = 5
+    repetitions = 10
     confidence = 0.00
     success = build()
     if (not success):
@@ -1066,7 +1111,7 @@ def benchmark_space_overhead():
 #benchmark_runtime_overhead()
 #benchmark_runtime_overhead_full()
 #benchmark_prediction_accuracy()
-# benchmark_predicted_time_savings()
+#benchmark_predicted_time_savings()
 #benchmark_identify_issues()
 #benchmark_hash_overhead()
 #benchmark_hash_overhead_torture()
