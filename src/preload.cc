@@ -75,7 +75,7 @@ void setenv_omp_tool_libraries(const char *exec_path) {
     fs::path exec_full_path = fs::canonical(exec_path);
     lib_path = exec_full_path.parent_path().append(lib_name);
   } catch (const std::exception &ex) {
-    std::cerr << "error: failed to resolve canonica path for " << lib_name
+    std::cerr << "error: failed to resolve canonical path for " << lib_name
               << ". " << ex.what() << "\n";
     exit(EXIT_FAILURE);
   }
