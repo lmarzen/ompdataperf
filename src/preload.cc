@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
   // on success, execvp() does not return
   execvp(program, program_args.data());
 
-  // ff execvp returns, an error occurred and errno is set
+  // if execvp returns, an error occurred and errno is set
   std::cerr << "error: failed to execute program. " << strerror(errno) << "\n";
   return 1;
 }
