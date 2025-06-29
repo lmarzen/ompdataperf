@@ -9,3 +9,7 @@ For running eval on different machines:
 -Xopenmp-target=nvptx64-nvidia-cuda --cuda-gpu-arch=<GPU sm version> \
 --libomptarget-nvptx-bc-path=<directory that holds .bc>
 ```
+
+Append the spack llvm library to LD_LIBRARY_PATH.
+It will try to link with libomptarget.so for skylake if not appended.
+ 
