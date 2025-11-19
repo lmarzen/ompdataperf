@@ -18,7 +18,7 @@ Options:
   --version               Print the version of ompdataperf
 ```
 
-#Docker
+# Docker
 
 OMPDataperf currently has two Docker files, one for ROCM and the other for CUDA.
 
