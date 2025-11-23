@@ -53,7 +53,7 @@ Run a benchmark:
 
 ## Docker
 
-OMPDataperf currently has two Docker files, one for ROCM and the other for CUDA.
+OMPDataperf supports two Dockerfiles, one for NVIDIA CUDA and the other for AMD ROCM.
 
 ### NVIDIA GPUs
 To get GPU support for NVIDIA GPUs working in a docker container you may require additional setup:
