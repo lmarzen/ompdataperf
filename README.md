@@ -1,6 +1,6 @@
 # OMPDataPerf
 
-# Usage
+## Usage
 ```
 Usage: ompdataperf [options] [program] [program arguments]
 Options:
@@ -10,7 +10,7 @@ Options:
   --version               Print the version of ompdataperf
 ```
 
-# Dependencies
+## Dependencies
 
 The provided [docker containers](#Docker) can be used to simplify environment setup.
 1. Clang >=19.1 with OpenMP GPU Offloading support
@@ -21,7 +21,7 @@ The provided [docker containers](#Docker) can be used to simplify environment se
     - NVIDIA: CUDA toolkit
     - AMD: ROCm device libraries
 
-# Building
+## Building
 ```bash
 git clone https://github.com/lmarzen/ompdataperf.git
 cd ompdataperf
@@ -29,7 +29,7 @@ git submodule update --init
 bash build.sh
 ```
 
-## Tool Evaluation and Testing (optional)
+### Tool Evaluation and Testing (optional)
 ```bash
 cd eval
 bash download_dataset.sh
@@ -51,24 +51,29 @@ Run a benchmark:
 ```
 
 
-# Docker
+## Docker
 
 OMPDataperf currently has two Docker files, one for ROCM and the other for CUDA.
 
-To run the container for AMD GPUs:
-```
-cd docker/rocm-docker-image
-docker build -t ompdataperf:latest .
-docker run --rm -it --device=/dev/kfd --device=/dev/dri --group-add video ompdataperf:latest bash
-```
-
-To run the container for Nvidia GPUs:
-```
+### NVIDIA GPUs
+To get GPU support for NVIDIA GPUs working in a docker container you may require additional setup:
+```bash
 sudo apt-get install -y nvidia-container-toolkit
 sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
+```
 
+To run the container for Nvidia GPUs:
+```bash
 cd docker/cuda-docker-image
 docker build -t ompdataperf:latest .
 docker run --rm -it --gpus all ompdataperf:latest bash
+```
+
+### AMD GPUs
+To run the container for AMD GPUs:
+```bash
+cd docker/rocm-docker-image
+docker build -t ompdataperf:latest .
+docker run --rm -it --device=/dev/kfd --device=/dev/dri --group-add video ompdataperf:latest bash
 ```
