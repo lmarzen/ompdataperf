@@ -56,7 +56,7 @@ Run a benchmark:
 OMPDataperf supports two Dockerfiles, one for NVIDIA CUDA and the other for AMD ROCM.
 
 ### NVIDIA GPUs
-To get GPU support for NVIDIA GPUs working in a docker container you may require additional setup:
+To get GPU support for NVIDIA GPUs working in a docker container you may require additional setup on your host system:
 ```bash
 sudo apt-get install -y nvidia-container-toolkit
 sudo nvidia-ctk runtime configure --runtime=docker
