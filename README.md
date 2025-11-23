@@ -30,6 +30,8 @@ bash build.sh
 ```
 
 ### Tool Evaluation and Testing (optional)
+
+Some third-party datasets for benchmarks must be downloaded:
 ```bash
 cd eval
 bash download_dataset.sh
