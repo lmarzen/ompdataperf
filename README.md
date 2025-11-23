@@ -47,7 +47,7 @@ make
 
 Run a benchmark:
 ```bash
-./build/ompdataperf ./src/hotspot/hotspot_offload 64 64 2 4 data/hotspot/temp_64 data/hotspot/power_64 output.out
+../build/ompdataperf ./src/hotspot/hotspot_offload 64 64 2 4 data/hotspot/temp_64 data/hotspot/power_64 output.out
 ```
 
 
