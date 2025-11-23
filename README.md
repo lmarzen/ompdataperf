@@ -17,9 +17,9 @@ The provided [docker containers](#Docker) can be used to simplify environment se
 2. elfutils (libdw) >= 0.189
 3. CMake >=3.12
 4. Python3
-5. GPU toolchains:
-  - NVIDIA: CUDA toolkit
-  - AMD: ROCm device libraries
+5. GPU toolchain(s):
+    - NVIDIA: CUDA toolkit
+    - AMD: ROCm device libraries
 
 # Building
 ```bash
