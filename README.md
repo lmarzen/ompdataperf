@@ -1,13 +1,5 @@
 # OMPDataPerf
 
-
-# Building
-```bash
-git clone https://github.com/lmarzen/ompdataperf.git
-git submodule update --init
-bash build.sh
-```
-
 # Usage
 ```
 Usage: ompdataperf [options] [program] [program arguments]
@@ -17,6 +9,46 @@ Options:
   -v, --verbose           Enable verbose output
   --version               Print the version of ompdataperf
 ```
+
+# Dependencies
+
+The provided [docker containers](#Docker) can be used to simplify environment setup.
+1. Clang >=19.1 with OpenMP GPU Offloading support
+2. elfutils (libdw) >= 0.189
+3. CMake >=3.12
+4. Python3
+5. GPU toolchains:
+  - NVIDIA: CUDA toolkit
+  - AMD: ROCm device libraries
+
+# Building
+```bash
+git clone https://github.com/lmarzen/ompdataperf.git
+git submodule update --init
+bash build.sh
+```
+
+## Tool Evaluation and Testing (optional)
+```bash
+cd eval
+bash download_dataset.sh
+```
+
+The build scripts for the included benchmarks were intended for use on a machine with an Nvidia GPU, if you have an AMD GPU you’ll need to replace the -fopenmp-targets=nvptx flag. This can be quickly done with the following command.
+```bash
+find . -type f -exec sed -i 's/nvptx64-nvidia-cuda/amdgcn-amd-amdhsa/g; s/nvptx64/amdgcn-amd-amdhsa/g' {} +
+```
+
+Compile the benchmarks and programs used for evaluation:
+```bash
+make
+```
+
+Run a benchmark:
+```bash
+./build/ompdataperf ./src/hotspot/hotspot_offload 64 64 2 4 data/hotspot/temp_64 data/hotspot/power_64 output.out
+```
+
 
 # Docker
 
@@ -37,5 +69,5 @@ sudo systemctl restart docker
 
 cd docker/cuda-docker-image
 docker build -t ompdataperf:latest .
-sudo docker run --rm -it --gpus all ompdataperf:latest bash
+docker run --rm -it --gpus all ompdataperf:latest bash
 ```
