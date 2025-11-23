@@ -24,6 +24,7 @@ The provided [docker containers](#Docker) can be used to simplify environment se
 # Building
 ```bash
 git clone https://github.com/lmarzen/ompdataperf.git
+cd ompdataperf
 git submodule update --init
 bash build.sh
 ```
