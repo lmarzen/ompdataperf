@@ -79,3 +79,29 @@ cd docker/rocm-docker-image
 docker build -t ompdataperf:latest .
 docker run --rm -it --device=/dev/kfd --device=/dev/dri --group-add video ompdataperf:latest bash
 ```
+
+## Citation
+
+If you use this code for your research, please cite the following work:
+
+> Luke Marzen, Junhyung Shim, and Ali Jannesari. 2026. Dynamic Detection of Inefficient Data Mapping Patterns in Heterogeneous OpenMP Applications. In Proceedings of the 31st ACM SIGPLAN Annual Symposium on Principles and Practice of Parallel Programming (PPoPP '26). Association for Computing Machinery, New York, NY, USA, 177–189. https://doi.org/10.1145/3774934.3786454
+
+```tex
+@inproceedings{10.1145/3774934.3786454,
+author = {Marzen, Luke and Shim, Junhyung and Jannesari, Ali},
+title = {Dynamic Detection of Inefficient Data Mapping Patterns in Heterogeneous OpenMP Applications},
+year = {2026},
+isbn = {9798400723100},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3774934.3786454},
+doi = {10.1145/3774934.3786454},
+abstract = {With the growing prevalence of heterogeneous computing, CPUs are increasingly being paired with accelerators to achieve new levels of performance and energy efficiency. However, data movement between devices remains a significant bottleneck, complicating application development. Existing performance tools require considerable programmer intervention to diagnose and locate data transfer inefficiencies. To address this, we propose dynamic analysis techniques to detect and profile inefficient data transfer and allocation patterns in heterogeneous applications. We implemented these techniques into OMPDataPerf, which provides detailed traces of problematic data mappings, source code attribution, and assessments of optimization potential in heterogeneous OpenMP applications. OMPDataPerf uses the OpenMP Tools Interface (OMPT) and incurs only a 5 \% geometric‑mean runtime overhead.},
+booktitle = {Proceedings of the 31st ACM SIGPLAN Annual Symposium on Principles and Practice of Parallel Programming},
+pages = {177–189},
+numpages = {13},
+keywords = {Data Transfer, Dynamic Analysis, GPUs, Heterogeneous Computing, OpenMP, Performance Profiling},
+location = {Sydney, NSW, Australia},
+series = {PPoPP '26}
+}
+```
